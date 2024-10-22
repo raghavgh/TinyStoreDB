@@ -1,3 +1,3 @@
-module simple-db-go
+module TinyStoreDB
 
 go 1.18

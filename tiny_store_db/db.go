@@ -1,4 +1,4 @@
-package simple_db
+package tiny_store_db
 
 import (
 	"bytes"
@@ -8,33 +8,24 @@ import (
 	"os"
 )
 
-type SimpleDB struct {
+type TinyStoreDB struct {
 	file *os.File
 }
 
-const dbPath = "simple_db/db.bin"
+const dbPath = "tiny_store_db/db.bin"
 
-/*// Initialize the database and register types
-func init() {
-	// Register the types you intend to store
-	gob.Register(string(""))
-	gob.Register(int(0))
-	gob.Register(float64(0))
-	// Add more types as needed
-}*/
-
-// NewSimpleDB initializes and returns a new SimpleDB instance
-func NewSimpleDB() *SimpleDB {
+// NewTinyStoreDB initializes and returns a new TinyStoreDB instance
+func NewTinyStoreDB() *TinyStoreDB {
 	file, err := os.OpenFile(dbPath, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		panic(err)
 	}
 
-	return &SimpleDB{file: file}
+	return &TinyStoreDB{file: file}
 }
 
 // Set stores the key-value pair in the database
-func (db *SimpleDB) Set(key, value []byte) error {
+func (db *TinyStoreDB) Set(key, value []byte) error {
 	// Write the length of keyBytes
 	if err := writeBytesWithLength(db.file, key); err != nil {
 		return err
@@ -49,7 +40,7 @@ func (db *SimpleDB) Set(key, value []byte) error {
 }
 
 // Get retrieves the value associated with the given key
-func (db *SimpleDB) Get(keyBytes []byte) ([]byte, error) {
+func (db *TinyStoreDB) Get(keyBytes []byte) ([]byte, error) {
 	// Reset file pointer to the beginning
 	_, err := db.file.Seek(0, io.SeekStart)
 	if err != nil {

@@ -4,21 +4,21 @@ import (
 	"bytes"
 	"encoding/gob"
 
-	"simple-db-go/simple_db"
+	"TinyStoreDB/tiny_store_db"
 )
 
-type SimpleDBClient struct {
-	db *simple_db.SimpleDB
+type TinyStoreDBClient struct {
+	db *tiny_store_db.TinyStoreDB
 }
 
-func NewSimpleDBClient() *SimpleDBClient {
-	db := simple_db.NewSimpleDB()
-	return &SimpleDBClient{
+func NewSimpleDBClient() *TinyStoreDBClient {
+	db := tiny_store_db.NewTinyStoreDB()
+	return &TinyStoreDBClient{
 		db: db,
 	}
 }
 
-func (sdc *SimpleDBClient) Set(key, val string) error {
+func (sdc *TinyStoreDBClient) Set(key, val string) error {
 	keyBytes, err := serialize(key)
 	if err != nil {
 		return err
@@ -32,7 +32,7 @@ func (sdc *SimpleDBClient) Set(key, val string) error {
 	return sdc.db.Set(keyBytes, valueBytes)
 }
 
-func (sdc *SimpleDBClient) Get(key string) (*string, error) {
+func (sdc *TinyStoreDBClient) Get(key string) (*string, error) {
 	keyBytes, err := serialize(key)
 	if err != nil {
 		return nil, err

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"simple-db-go/client"
+	"TinyStoreDB/client"
 )
 
 //TIP To run your code, right-click the code and select <b>Run</b>. Alternatively, click
@@ -17,7 +17,7 @@ func main() {
 }
 
 // loadBulkDataForLoadTesting loads bulk data for load testing
-func loadBulkDataForLoadTesting(db *client.SimpleDBClient) {
+func loadBulkDataForLoadTesting(db *client.TinyStoreDBClient) {
 	for i := 0; i < 100000; i++ {
 		key := fmt.Sprintf("key%d", i)
 		value := fmt.Sprintf("value%d", i)
@@ -30,7 +30,7 @@ func loadBulkDataForLoadTesting(db *client.SimpleDBClient) {
 }
 
 // Call multiple get and log the performance
-func getMultipleData(db *client.SimpleDBClient) {
+func getMultipleData(db *client.TinyStoreDBClient) {
 	start := time.Now()
 	for i := 0; i < 5000; i++ {
 		key := fmt.Sprintf("key%d", i)
