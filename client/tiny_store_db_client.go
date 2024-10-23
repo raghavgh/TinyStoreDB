@@ -11,7 +11,7 @@ type TinyStoreDBClient struct {
 	db *tiny_store_db.TinyStoreDB
 }
 
-func NewSimpleDBClient() *TinyStoreDBClient {
+func NewTinyStoreDBClient() *TinyStoreDBClient {
 	db := tiny_store_db.NewTinyStoreDB()
 	return &TinyStoreDBClient{
 		db: db,
