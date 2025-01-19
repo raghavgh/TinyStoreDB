@@ -2,6 +2,7 @@
 
 **TinyStoreDB** is a lightweight, persistent key-value storage system built as a learning project. It provides basic operations to store and retrieve string-based key-value pairs using an append-only storage model.  
 ⚠️ **Note:** This project is still in progress and **not ready for production use.**
+
 ---
 
 ## ✨ Features
