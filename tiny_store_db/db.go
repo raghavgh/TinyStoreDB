@@ -12,7 +12,11 @@ type TinyStoreDB struct {
 	file *os.File
 }
 
-const dbPath = "tiny_store_db/db.bin"
+const (
+	dbPath = "tiny_store_db/db.bin"
+)
+
+var ErrKeyNotFound = errors.New("key not found")
 
 // NewTinyStoreDB initializes and returns a new TinyStoreDB instance
 func NewTinyStoreDB() *TinyStoreDB {
@@ -24,15 +28,19 @@ func NewTinyStoreDB() *TinyStoreDB {
 	return &TinyStoreDB{file: file}
 }
 
+func (t *TinyStoreDB) Close() {
+	t.file.Close()
+}
+
 // Set stores the key-value pair in the database
-func (db *TinyStoreDB) Set(key, value []byte) error {
+func (t *TinyStoreDB) Set(key, value []byte) error {
 	// Write the length of keyBytes
-	if err := writeBytesWithLength(db.file, key); err != nil {
+	if err := writeBytesWithLength(t.file, key); err != nil {
 		return err
 	}
 
 	// Write the length of valueBytes
-	if err := writeBytesWithLength(db.file, value); err != nil {
+	if err := writeBytesWithLength(t.file, value); err != nil {
 		return err
 	}
 
@@ -40,16 +48,16 @@ func (db *TinyStoreDB) Set(key, value []byte) error {
 }
 
 // Get retrieves the value associated with the given key
-func (db *TinyStoreDB) Get(keyBytes []byte) ([]byte, error) {
+func (t *TinyStoreDB) Get(keyBytes []byte) ([]byte, error) {
 	// Reset file pointer to the beginning
-	_, err := db.file.Seek(0, io.SeekStart)
+	_, err := t.file.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, err
 	}
 
 	for {
 		// Read key length
-		kLen, err := readLength(db.file)
+		kLen, err := readLength(t.file)
 		if err == io.EOF {
 			break // Reached end of file, key not found
 		}
@@ -59,7 +67,7 @@ func (db *TinyStoreDB) Get(keyBytes []byte) ([]byte, error) {
 
 		// Read key bytes
 		currentKeyBytes := make([]byte, kLen)
-		_, err = io.ReadFull(db.file, currentKeyBytes)
+		_, err = io.ReadFull(t.file, currentKeyBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -67,14 +75,14 @@ func (db *TinyStoreDB) Get(keyBytes []byte) ([]byte, error) {
 		// Compare keys
 		if bytes.Equal(currentKeyBytes, keyBytes) {
 			// Read value length
-			vLen, err := readLength(db.file)
+			vLen, err := readLength(t.file)
 			if err != nil {
 				return nil, err
 			}
 
 			// Read value bytes
 			valueBytes := make([]byte, vLen)
-			_, err = io.ReadFull(db.file, valueBytes)
+			_, err = io.ReadFull(t.file, valueBytes)
 			if err != nil {
 				return nil, err
 			}
@@ -82,18 +90,18 @@ func (db *TinyStoreDB) Get(keyBytes []byte) ([]byte, error) {
 			return valueBytes, nil
 		} else {
 			// Skip the value associated with the non-matching key
-			vLen, err := readLength(db.file)
+			vLen, err := readLength(t.file)
 			if err != nil {
 				return nil, err
 			}
-			_, err = db.file.Seek(int64(vLen), io.SeekCurrent)
+			_, err = t.file.Seek(int64(vLen), io.SeekCurrent)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	return nil, errors.New("key not found")
+	return nil, ErrKeyNotFound
 }
 
 // writeBytesWithLength writes the length of the byte slice followed by the bytes themselves
