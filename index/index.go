@@ -14,5 +14,16 @@ type Index[K comparable, V any] interface {
 
 	// Rebuild rebuilds the index.
 	Rebuild(pairList pair.List[K, V])
+
+	// GetCurrentSnapshot returns the current snapshot of the index.
+	GetCurrentSnapshot() pair.List[K, V]
+
+	// Clear clears the index.
 	Clear()
+
+	// Lock locks the index for writing.
+	Lock()
+
+	// Unlock unlocks the index.
+	Unlock()
 }
