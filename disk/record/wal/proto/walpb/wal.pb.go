@@ -7,12 +7,11 @@
 package walpb
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -27,6 +26,7 @@ type WALRecord struct {
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Offset        uint64                 `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
 	Timestamp     uint64                 `protobuf:"varint,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"` // optional
+	Deleted       bool                   `protobuf:"varint,4,opt,name=deleted,proto3" json:"deleted,omitempty"`     // tombstone
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -82,15 +82,23 @@ func (x *WALRecord) GetTimestamp() uint64 {
 	return 0
 }
 
+func (x *WALRecord) GetDeleted() bool {
+	if x != nil {
+		return x.Deleted
+	}
+	return false
+}
+
 var File_wal_proto protoreflect.FileDescriptor
 
 const file_wal_proto_rawDesc = "" +
 	"\n" +
-	"\twal.proto\x12\x03wal\"S\n" +
+	"\twal.proto\x12\x03wal\"m\n" +
 	"\tWALRecord\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x16\n" +
 	"\x06offset\x18\x02 \x01(\x04R\x06offset\x12\x1c\n" +
-	"\ttimestamp\x18\x03 \x01(\x04R\ttimestampB\rZ\vproto/walpbb\x06proto3"
+	"\ttimestamp\x18\x03 \x01(\x04R\ttimestamp\x12\x18\n" +
+	"\adeleted\x18\x04 \x01(\bR\adeletedB\rZ\vproto/walpbb\x06proto3"
 
 var (
 	file_wal_proto_rawDescOnce sync.Once

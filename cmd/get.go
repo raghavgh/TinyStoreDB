@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/raghavgh/TinyStoreDB/config"
 	"github.com/raghavgh/TinyStoreDB/store"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +31,7 @@ to quickly create a Cobra application.`,
 
 		key := args[0]
 
-		kvStore, err := store.NewKVStore()
+		kvStore, err := store.NewKVStore(config.Load())
 		if err != nil {
 			fmt.Println("Failed to create KV store:", err)
 

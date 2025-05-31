@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package tinystore;
+
+option go_package = "github.com/raghavgh/TinyStoreDB/server/proto;tspb";
+
+service TinyStoreService {
+  rpc Set(SetRequest) returns (SetResponse);
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc Compact(CompactRequest) returns (CompactResponse);
+}
+
+message SetRequest {
+  string key = 1;
+  string value = 2;
+}
+
+message SetResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message GetRequest {
+  string key = 1;
+}
+
+message GetResponse {
+  string value = 1;
+  string error = 2;
+}
+
+message DeleteRequest {
+  string key = 1;
+}
+
+message DeleteResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message CompactRequest {}
+
+message CompactResponse {
+  bool success = 1;
+  string error = 2;
+}
+

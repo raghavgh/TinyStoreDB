@@ -8,4 +8,5 @@ message WALRecord {
   string key = 1;
   uint64 offset = 2;
   uint64 timestamp = 3; // optional
+  bool deleted = 4; // tombstone
 }
