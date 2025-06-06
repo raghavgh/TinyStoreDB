@@ -12,7 +12,7 @@ import (
 )
 
 func TestConcurrentSetAndGet(t *testing.T) {
-	client, _ := client.NewTinyStoreClient("localhost:50051") // your grpc client wrapper
+	client, _ := client.New("localhost:50051") // your grpc client wrapper
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
@@ -36,7 +36,7 @@ func TestConcurrentSetAndGet(t *testing.T) {
 }
 
 func TestSimple(t *testing.T) {
-	client, err := client.NewTinyStoreClient("localhost:50051")
+	client, err := client.New("localhost:50051")
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -52,7 +52,7 @@ func TestSimple(t *testing.T) {
 }
 
 func TestCompactionWithEdgeCases(t *testing.T) {
-	client, err := client.NewTinyStoreClient("localhost:50051")
+	client, err := client.New("localhost:50051")
 	require.NoError(t, err)
 	defer client.Close()
 
