@@ -3,36 +3,6 @@
 **TinyStoreDB** is a lightweight, persistent key-value storage system built as a learning project. It provides basic operations to store and retrieve string-based key-value pairs using an append-only storage model.  
 🚧 **Note:** This project is under active development and approaching an MVP-ready state.
 
-## 📦 Features Implemented
-
-- ✅ Set, Get, and Delete operations
-- ✅ Append-only log-structured storage
-- ✅ In-memory index for fast lookups
-- ✅ Tombstone support for deletes
-- ✅ Compaction to reclaim disk space
-- ✅ Concurrency-safe operations (read/write)
-- ✅ Basic observability with Prometheus metrics
-- ✅ Configurable port and data directory via environment variables
-- ✅ Dockerized setup for easy deployment
-- ✅ Go client SDK for easy integration in Go projects
-
-## 🚧 Upcoming Improvements
-
-- 📦 client SDK for other languages
-- 🌐 New operations
-- 🚀 Lock Free Auto Compaction
-- 🔐 Basic auth support using shared secret
-- 🌐 Optional HTTP server interface
-- 🔄 Auto-triggered compaction logic
-- 🧪 End-to-end integration tests
-- 📚 Better documentation and usage guides
-
----
-
-## 🤝 Contribution
-
-TinyStoreDB is a learning-focused project, but collaboration is encouraged!  
-If you're interested in building features, reviewing design decisions, or exploring the internals of a key-value DB, feel free to connect and pair up.
 
 ## 🐳 Docker Usage
 
@@ -41,8 +11,6 @@ You can run the database with:
 ```bash
 docker run -p 7389:7389 -e TINYSTOREDB_PORT=7389 -e TINYSTOREDB_DATA_DIR=/data tinystoredb/tinystoredb:latest
 ```
-
----
 
 ## 📦 Go Client SDK Usage
 
@@ -96,6 +64,35 @@ func main() {
 	}
 }
 ```
+
+## 📦 Features Implemented
+
+- ✅ Set, Get, and Delete operations
+- ✅ Append-only log-structured storage
+- ✅ In-memory index for fast lookups
+- ✅ Tombstone support for deletes
+- ✅ Compaction to reclaim disk space
+- ✅ Concurrency-safe operations (read/write)
+- ✅ Basic observability with Prometheus metrics
+- ✅ Configurable port and data directory via environment variables
+- ✅ Dockerized setup for easy deployment
+- ✅ Go client SDK for easy integration in Go projects
+
+## 🚧 Upcoming Improvements
+
+- 📦 client SDK for other languages
+- 🌐 New operations
+- 🚀 Lock Free Auto Compaction
+- 🔐 Basic auth support using shared secret
+- 🌐 Optional HTTP server interface
+- 🔄 Auto-triggered compaction logic
+- 🧪 End-to-end integration tests
+- 📚 Better documentation and usage guides
+
+## 🤝 Contribution
+
+TinyStoreDB is a learning-focused project, but collaboration is encouraged!  
+If you're interested in building features, reviewing design decisions, or exploring the internals of a key-value DB, feel free to connect and pair up.
 
 ---
 
