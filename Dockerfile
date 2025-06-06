@@ -1,23 +1,21 @@
-# Use minimal Go base image
 FROM golang:1.24-alpine as builder
 
 WORKDIR /app
 COPY . .
 
-# Build your TinyStoreDB binary
+# Build binary
 RUN go build -o tinystoredb main.go
 
-# Final stage - use scratch or alpine
-FROM alpine:latest
+FROM alpine:3.18
 
 WORKDIR /app
-COPY --from=builder /app/tinystore .
+COPY --from=builder /app/tinystoredb .
 
-# Expose gRPC port
+# Create data directory
+RUN mkdir -p /data
+ENV TINYSTOREDB_PORT=50051
+ENV TINYSTOREDB_DATA_DIR=/data
+
 EXPOSE 50051
 
-# Optional: allow custom args/env
-ENV TINYSTOREDB_PORT=50051
-
-# Run your DB engine
-CMD ["./tinystoredb"]
+ENTRYPOINT ["./tinystoredb"]
