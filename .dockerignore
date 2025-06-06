@@ -1,0 +1,19 @@
+# Ignore source control
+.git
+.gitignore
+
+# Ignore development artifacts
+*.log
+*.env
+*.db
+*.bin
+*.tmp
+
+# Ignore Go build artifacts
+bin/
+*.test
+*.out
+
+# Ignore Docker-specific
+Dockerfile
+docker-compose.yml

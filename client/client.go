@@ -14,7 +14,7 @@ type TinyStoreClient struct {
 }
 
 func NewTinyStoreClient(addr string) (*TinyStoreClient, error) {
-	conn, err := grpc.Dial(addr,
+	conn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // ✅ FIXED
 	)
 	if err != nil {
