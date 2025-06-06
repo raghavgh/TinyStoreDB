@@ -18,7 +18,7 @@
 
 ## 🚧 Upcoming Improvements
 
-- 📦 Go client SDK for external usage
+- 📦 client SDK for other languages
 - 🌐 New operations
 - 🚀 Lock Free Auto Compaction
 - 🔐 Basic auth support using shared secret
