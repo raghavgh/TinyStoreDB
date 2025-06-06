@@ -13,7 +13,7 @@ type TinyStoreClient struct {
 	client tspb.TinyStoreServiceClient
 }
 
-func NewTinyStoreClient(addr string) (*TinyStoreClient, error) {
+func New(addr string) (*TinyStoreClient, error) {
 	conn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // ✅ FIXED
 	)

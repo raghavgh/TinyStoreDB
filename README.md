@@ -58,32 +58,40 @@ go get github.com/raghavgh/TinyStoreDB/client
 package main
 
 import (
-    "log"
-    "github.com/raghavgh/TinyStoreDB/client"
+	"context"
+	"log"
+
+	"github.com/raghavgh/TinyStoreDB/client"
 )
 
 func main() {
-    cli, err := client.New("localhost:7389")
-    if err != nil {
-        log.Fatal(err)
-    }
+	cli, err := client.New("localhost:7389")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    err = cli.Set("key1", "value1")
-    if err != nil {
-        log.Fatal(err)
-    }
+	ctx := context.Background()
 
-    val, err := cli.Get("key1")
-    if err != nil {
-        log.Fatal(err)
-    }
+	err = cli.Set(ctx, "key1", "value1")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    log.Println("Got value:", val)
+	val, err := cli.Get(ctx, "key1")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    err = cli.Delete("key1")
-    if err != nil {
-        log.Fatal(err)
-    }
+	log.Println("Got value:", val)
+
+	ok, err := cli.Delete(ctx, "key1")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if !ok {
+		log.Println("Delete failed")
+	}
 }
 ```
 
