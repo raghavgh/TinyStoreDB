@@ -17,6 +17,8 @@ import (
 func main() {
 	server.InitMetrics()
 
+	cfg := config.Load()
+
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
 		log.Printf("📈 Prometheus metrics at http://localhost:2112/metrics")
@@ -30,15 +32,13 @@ func main() {
 		cmd.Execute()
 	}()
 
-	cfg := config.Load()
-
 	kv, err := store.NewKVStore(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create KVStore: %v\n", err)
 	}
 
 	// Start the gRPC server
-	if err := server.StartGRPCServer(cfg.Port, kv); err != nil {
+	if err := server.StartGRPCServer(cfg, kv); err != nil {
 		log.Fatalf("Failed to start gRPC server: %v", err)
 	}
 }

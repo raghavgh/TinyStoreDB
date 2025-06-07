@@ -6,6 +6,7 @@ import (
 	tspb "github.com/raghavgh/TinyStoreDB/server/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 type TinyStoreClient struct {
@@ -13,10 +14,37 @@ type TinyStoreClient struct {
 	client tspb.TinyStoreServiceClient
 }
 
-func New(addr string) (*TinyStoreClient, error) {
-	conn, err := grpc.NewClient(addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()), // ✅ FIXED
+func New(addr string, token *string) (*TinyStoreClient, error) {
+	authInterceptor := grpc.WithUnaryInterceptor(func(
+		ctx context.Context,
+		method string,
+		req, reply interface{},
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption,
+	) error {
+		md := metadata.New(map[string]string{
+			"authorization": *token,
+		})
+		ctx = metadata.NewOutgoingContext(ctx, md)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	})
+
+	var (
+		conn *grpc.ClientConn
+		err  error
 	)
+
+	if token != nil {
+		conn, err = grpc.NewClient(addr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			authInterceptor,
+		)
+	} else {
+		conn, err = grpc.NewClient(addr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
 	if err != nil {
 		return nil, err
 	}
