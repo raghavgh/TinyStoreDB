@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/raghavgh/TinyStoreDB/asynclogger"
 	"github.com/raghavgh/TinyStoreDB/cmd"
 	"github.com/raghavgh/TinyStoreDB/config"
 	"github.com/raghavgh/TinyStoreDB/server"
@@ -16,7 +17,8 @@ import (
 
 func main() {
 	server.InitMetrics()
-
+	asynclogger.Init()
+	defer asynclogger.Shutdown()
 	cfg := config.Load()
 
 	go func() {

@@ -3,13 +3,14 @@ package store
 import (
 	"testing"
 
+	"github.com/raghavgh/TinyStoreDB/config"
 	"github.com/stretchr/testify/suite"
 )
 
 func (s *KVStoreTestSuite) SetupTest() {
 	_test = true
 
-	s.store, _ = NewKVStore()
+	s.store, _ = NewKVStore(config.Load())
 }
 
 func (s *KVStoreTestSuite) TearDownTest() {
@@ -20,7 +21,7 @@ func (s *KVStoreTestSuite) TearDownTest() {
 
 // TestSet tests the Set method of the KVStore.
 func (s *KVStoreTestSuite) TestSet() {
-	err := s.store.Set("key1", "value1")
+	err := s.store.Set("key1", "value1", nil)
 	s.NoError(err)
 }
 
@@ -33,7 +34,7 @@ func (s *KVStoreTestSuite) TestGetNotFound() {
 
 // TestSetAndGet tests the Set and Get methods of the KVStore.
 func (s *KVStoreTestSuite) TestSetAndGet() {
-	setErr := s.store.Set("TestSetAndGetKey", "TestSetAndGetValue")
+	setErr := s.store.Set("TestSetAndGetKey", "TestSetAndGetValue", nil)
 	s.NoError(setErr)
 
 	getVal, getErr := s.store.Get("TestSetAndGetKey")
@@ -46,9 +47,9 @@ func (s *KVStoreTestSuite) TestSetAndGet() {
 // and check if the values are still there.
 func (s *KVStoreTestSuite) TestReplay() {
 	// Set some values
-	_ = s.store.Set("key1", "value1")
-	_ = s.store.Set("key2", "value2")
-	_ = s.store.Set("key3", "value3")
+	_ = s.store.Set("key1", "value1", nil)
+	_ = s.store.Set("key2", "value2", nil)
+	_ = s.store.Set("key3", "value3", nil)
 
 	// Clear the store
 	s.store.inMemoryIndex.Clear()
@@ -56,7 +57,7 @@ func (s *KVStoreTestSuite) TestReplay() {
 	_ = s.store.wal.Close(false)
 	_ = s.store.valueLog.Close(false)
 
-	s.store, _ = NewKVStore()
+	s.store, _ = NewKVStore(config.Load())
 
 	// Replay the values
 	err := s.store.Replay()

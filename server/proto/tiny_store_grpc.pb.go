@@ -24,6 +24,7 @@ const (
 	TinyStoreService_Get_FullMethodName     = "/tinystore.TinyStoreService/Get"
 	TinyStoreService_Delete_FullMethodName  = "/tinystore.TinyStoreService/Delete"
 	TinyStoreService_Compact_FullMethodName = "/tinystore.TinyStoreService/Compact"
+	TinyStoreService_Exist_FullMethodName   = "/tinystore.TinyStoreService/Exist"
 )
 
 // TinyStoreServiceClient is the client API for TinyStoreService service.
@@ -34,6 +35,7 @@ type TinyStoreServiceClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	Compact(ctx context.Context, in *CompactRequest, opts ...grpc.CallOption) (*CompactResponse, error)
+	Exist(ctx context.Context, in *ExistRequest, opts ...grpc.CallOption) (*ExistResponse, error)
 }
 
 type tinyStoreServiceClient struct {
@@ -84,6 +86,16 @@ func (c *tinyStoreServiceClient) Compact(ctx context.Context, in *CompactRequest
 	return out, nil
 }
 
+func (c *tinyStoreServiceClient) Exist(ctx context.Context, in *ExistRequest, opts ...grpc.CallOption) (*ExistResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExistResponse)
+	err := c.cc.Invoke(ctx, TinyStoreService_Exist_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TinyStoreServiceServer is the server API for TinyStoreService service.
 // All implementations must embed UnimplementedTinyStoreServiceServer
 // for forward compatibility.
@@ -92,6 +104,7 @@ type TinyStoreServiceServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	Compact(context.Context, *CompactRequest) (*CompactResponse, error)
+	Exist(context.Context, *ExistRequest) (*ExistResponse, error)
 	mustEmbedUnimplementedTinyStoreServiceServer()
 }
 
@@ -113,6 +126,9 @@ func (UnimplementedTinyStoreServiceServer) Delete(context.Context, *DeleteReques
 }
 func (UnimplementedTinyStoreServiceServer) Compact(context.Context, *CompactRequest) (*CompactResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compact not implemented")
+}
+func (UnimplementedTinyStoreServiceServer) Exist(context.Context, *ExistRequest) (*ExistResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exist not implemented")
 }
 func (UnimplementedTinyStoreServiceServer) mustEmbedUnimplementedTinyStoreServiceServer() {}
 func (UnimplementedTinyStoreServiceServer) testEmbeddedByValue()                          {}
@@ -207,6 +223,24 @@ func _TinyStoreService_Compact_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TinyStoreService_Exist_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExistRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TinyStoreServiceServer).Exist(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TinyStoreService_Exist_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TinyStoreServiceServer).Exist(ctx, req.(*ExistRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TinyStoreService_ServiceDesc is the grpc.ServiceDesc for TinyStoreService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -229,6 +263,10 @@ var TinyStoreService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Compact",
 			Handler:    _TinyStoreService_Compact_Handler,
+		},
+		{
+			MethodName: "Exist",
+			Handler:    _TinyStoreService_Exist_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

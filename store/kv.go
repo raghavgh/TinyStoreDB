@@ -17,6 +17,7 @@ import (
 	"github.com/raghavgh/TinyStoreDB/index/go_map"
 	"github.com/raghavgh/TinyStoreDB/index/thread_safe_map"
 	"github.com/raghavgh/TinyStoreDB/pair"
+	"github.com/raghavgh/TinyStoreDB/utils"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -167,7 +168,10 @@ func (kv *KVStore) Replay() error {
 		// if key exist in deletedMap remove it since it set again as per logs
 		delete(deletedKeys, walRecord.Key)
 
-		pairList = append(pairList, &pair.Pair[string, uint64]{Key: walRecord.Key, Value: walRecord.Offset})
+		pairList = append(
+			pairList,
+			&pair.Pair[string, uint64]{Key: walRecord.Key, Value: walRecord.Offset},
+		)
 	}
 
 	kv.inMemoryIndex.Rebuild(pairList)
@@ -179,38 +183,57 @@ func (kv *KVStore) Replay() error {
 	return nil
 }
 
-func (kv *KVStore) Get(key string) (string, error) {
+func (kv *KVStore) getValue(key string) (*value_log_pb.ValueLogRecord, error) {
 	if _readBarrier.Load() {
-		return "", errors.New("retryable error")
+		return nil, errors.New("retryable error")
 	}
 
 	val, ok := kv.inMemoryIndex.Get(key)
 	if !ok {
-		return "", errors.New("key not found")
+		return nil, errors.New("key not found")
 	}
 
 	value := &value_log_pb.ValueLogRecord{}
 
 	err := kv.valueLog.ReadAt(val, value)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if value == nil {
-		return "", nil
+		return nil, nil
+	}
+
+	if value.Ttl != nil && value.GetTtl() < uint64(time.Now().Unix()) {
+
+		err = kv.Delete(key)
+		if err != nil {
+			log.Printf("error while deleting key %s: %s\n", key, err.Error())
+			return nil, errors.New("key not found")
+		}
+	}
+
+	return value, nil
+}
+
+func (kv *KVStore) Get(key string) (string, error) {
+	value, err := kv.getValue(key)
+	if err != nil {
+		return "", err
 	}
 
 	return string(value.Value), nil
 }
 
-func (kv *KVStore) Set(key string, value string) error {
+func (kv *KVStore) Set(key string, value string, ttl *uint64) error {
 	if _writerBarrier.Load() {
 		return errors.New("retryable error")
 	}
 
 	offset, err := kv.valueLog.Append(&value_log_pb.ValueLogRecord{
 		Value:     []byte(value),
-		Timestamp: uint64(time.Now().Unix()),
+		Timestamp: utils.ToPointer(uint64(time.Now().Unix())),
+		Ttl:       ttl,
 	})
 	if err != nil {
 		return err
@@ -220,13 +243,14 @@ func (kv *KVStore) Set(key string, value string) error {
 	_, err = kv.wal.Append(&walpb.WALRecord{
 		Key:       key,
 		Offset:    offset,
-		Timestamp: uint64(time.Now().Unix()),
+		Timestamp: utils.ToPointer(uint64(time.Now().Unix())),
+		Ttl:       ttl,
 	})
 	if err != nil {
 		// remove from in-memory index, to prevent garbage data.
 		kv.inMemoryIndex.Delete(key)
 
-		//TODO: also remove from value log, once we have a way to do that.
+		// TODO: also remove from value log, once we have a way to do that.
 
 		return err
 	}
@@ -236,6 +260,28 @@ func (kv *KVStore) Set(key string, value string) error {
 
 func (kv *KVStore) fullPath(filename string) string {
 	return filepath.Join(kv.dataDirectory, filename)
+}
+
+func (kv *KVStore) Exist(key string) (bool, error) {
+	if _readBarrier.Load() {
+		return false, errors.New("retryable error")
+	}
+
+	val, err := kv.getValue(key)
+	if err != nil {
+		return false, nil
+	}
+
+	if val.Ttl != nil && val.GetTtl() < uint64(time.Now().Unix()) {
+		err = kv.Delete(key)
+		if err != nil {
+			log.Printf("error while deleting key %s: %s\n", key, err.Error())
+		}
+
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func (kv *KVStore) Delete(key string) error {
@@ -250,7 +296,7 @@ func (kv *KVStore) Delete(key string) error {
 
 	_, err := kv.wal.Append(&walpb.WALRecord{
 		Key:       key,
-		Timestamp: uint64(time.Now().Unix()),
+		Timestamp: utils.ToPointer(uint64(time.Now().Unix())),
 		Deleted:   true,
 	})
 	if err != nil {
@@ -258,15 +304,6 @@ func (kv *KVStore) Delete(key string) error {
 	}
 
 	kv.inMemoryIndex.Delete(key)
-	_, err = kv.wal.Append(&walpb.WALRecord{
-		Key:       key,
-		Timestamp: uint64(time.Now().Unix()),
-		Deleted:   true,
-	})
-
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -275,7 +312,7 @@ func ensureDirExists(path string) {
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		// Directory does not exist, so create it
-		if err := os.MkdirAll(path, 0755); err != nil {
+		if err := os.MkdirAll(path, 0o755); err != nil {
 			log.Fatalf("failed to create directory: %v", err)
 		}
 	} else if err != nil {

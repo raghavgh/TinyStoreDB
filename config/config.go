@@ -5,10 +5,8 @@ import (
 	"os"
 )
 
-var (
-	// Config is the global configuration variable.
-	config *Config
-)
+// Config is the global configuration variable.
+var config *Config
 
 type Config struct {
 	Port     string
@@ -33,10 +31,26 @@ func Load() *Config {
 }
 
 func loadConfig() *Config {
-	port := flag.String("port", getEnvOrDefault("TINYSTOREDB_PORT", "7389"), "Port to run TinyStoreDB")
-	dataDir := flag.String("data-dir", getEnvOrDefault("TINYSTOREDB_DATA_DIR", "data"), "Data directory")
-	logLevel := flag.String("log-level", getEnvOrDefault("TINYSTOREDB_LOG_LEVEL", "info"), "Log level")
-	secret := flag.String("secret", getEnvOrDefault("TINYSTOREDB_SECRET", "secret"), "Secret to use")
+	port := flag.String(
+		"port",
+		getEnvOrDefault("TINYSTOREDB_PORT", "7389"),
+		"Port to run TinyStoreDB",
+	)
+	dataDir := flag.String(
+		"data-dir",
+		getEnvOrDefault("TINYSTOREDB_DATA_DIR", "data"),
+		"Data directory",
+	)
+	logLevel := flag.String(
+		"log-level",
+		getEnvOrDefault("TINYSTOREDB_LOG_LEVEL", "info"),
+		"Log level",
+	)
+	secret := flag.String(
+		"secret",
+		getEnvOrDefault("TINYSTOREDB_SECRET", "secret"),
+		"Secret to use",
+	)
 
 	if Unpack(secret) == "secret" {
 		secret = nil

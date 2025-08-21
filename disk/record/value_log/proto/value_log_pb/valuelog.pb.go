@@ -7,12 +7,11 @@
 package value_log_pb
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -25,7 +24,8 @@ const (
 type ValueLogRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         []byte                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
-	Timestamp     uint64                 `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"` // optional
+	Timestamp     *uint64                `protobuf:"varint,4,opt,name=timestamp,proto3,oneof" json:"timestamp,omitempty"` // optional
+	Ttl           *uint64                `protobuf:"varint,5,opt,name=ttl,proto3,oneof" json:"ttl,omitempty"`             // time to live
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -68,8 +68,15 @@ func (x *ValueLogRecord) GetValue() []byte {
 }
 
 func (x *ValueLogRecord) GetTimestamp() uint64 {
-	if x != nil {
-		return x.Timestamp
+	if x != nil && x.Timestamp != nil {
+		return *x.Timestamp
+	}
+	return 0
+}
+
+func (x *ValueLogRecord) GetTtl() uint64 {
+	if x != nil && x.Ttl != nil {
+		return *x.Ttl
 	}
 	return 0
 }
@@ -78,10 +85,14 @@ var File_valuelog_proto protoreflect.FileDescriptor
 
 const file_valuelog_proto_rawDesc = "" +
 	"\n" +
-	"\x0evaluelog.proto\x12\tvalue_log\"D\n" +
+	"\x0evaluelog.proto\x12\tvalue_log\"v\n" +
 	"\x0eValueLogRecord\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\fR\x05value\x12\x1c\n" +
-	"\ttimestamp\x18\x04 \x01(\x04R\ttimestampB\x14Z\x12proto/value_log_pbb\x06proto3"
+	"\x05value\x18\x02 \x01(\fR\x05value\x12!\n" +
+	"\ttimestamp\x18\x04 \x01(\x04H\x00R\ttimestamp\x88\x01\x01\x12\x15\n" +
+	"\x03ttl\x18\x05 \x01(\x04H\x01R\x03ttl\x88\x01\x01B\f\n" +
+	"\n" +
+	"_timestampB\x06\n" +
+	"\x04_ttlB\x14Z\x12proto/value_log_pbb\x06proto3"
 
 var (
 	file_valuelog_proto_rawDescOnce sync.Once
@@ -112,6 +123,7 @@ func file_valuelog_proto_init() {
 	if File_valuelog_proto != nil {
 		return
 	}
+	file_valuelog_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

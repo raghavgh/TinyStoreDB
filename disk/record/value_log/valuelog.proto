@@ -6,5 +6,6 @@ option go_package = "proto/value_log_pb";
 
 message ValueLogRecord {
   bytes value = 2;
-  uint64 timestamp = 4; // optional
+  optional uint64 timestamp = 4; // optional
+  optional uint64 ttl = 5; // time to live
 }

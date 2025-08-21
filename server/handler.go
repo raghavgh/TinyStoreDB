@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log"
+	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
 	tspb "github.com/raghavgh/TinyStoreDB/server/proto"
@@ -24,7 +25,7 @@ func (h *TinyStoreHandler) Get(_ context.Context, req *tspb.GetRequest) (*tspb.G
 		return nil, err
 	}
 
-	log.Printf("Get request for key: %s, value: %s", req.Key, value)
+	slog.Info("Get request for key, value", req.Key, value)
 
 	return &tspb.GetResponse{
 		Value: value,
@@ -36,7 +37,7 @@ func (h *TinyStoreHandler) Set(_ context.Context, req *tspb.SetRequest) (*tspb.S
 	timer := prometheus.NewTimer(GRPCLatency.WithLabelValues(method))
 	defer timer.ObserveDuration()
 
-	err := h.Store.Set(req.Key, req.Value)
+	err := h.Store.Set(req.Key, req.Value, req.Ttl)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +49,10 @@ func (h *TinyStoreHandler) Set(_ context.Context, req *tspb.SetRequest) (*tspb.S
 	}, nil
 }
 
-func (h *TinyStoreHandler) Delete(_ context.Context, req *tspb.DeleteRequest) (*tspb.DeleteResponse, error) {
+func (h *TinyStoreHandler) Delete(
+	_ context.Context,
+	req *tspb.DeleteRequest,
+) (*tspb.DeleteResponse, error) {
 	method := "Delete"
 	timer := prometheus.NewTimer(GRPCLatency.WithLabelValues(method))
 	defer timer.ObserveDuration()
@@ -65,7 +69,30 @@ func (h *TinyStoreHandler) Delete(_ context.Context, req *tspb.DeleteRequest) (*
 	}, nil
 }
 
-func (h *TinyStoreHandler) Compact(_ context.Context, req *tspb.CompactRequest) (*tspb.CompactResponse, error) {
+func (h *TinyStoreHandler) Exist(
+	_ context.Context,
+	req *tspb.ExistRequest,
+) (*tspb.ExistResponse, error) {
+	method := "Exist"
+	timer := prometheus.NewTimer(GRPCLatency.WithLabelValues(method))
+	defer timer.ObserveDuration()
+
+	exist, err := h.Store.Exist(req.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("Exist request for key: %s, exist: %t", req.Key, exist)
+
+	return &tspb.ExistResponse{
+		Value: exist,
+	}, nil
+}
+
+func (h *TinyStoreHandler) Compact(
+	_ context.Context,
+	req *tspb.CompactRequest,
+) (*tspb.CompactResponse, error) {
 	method := "Compact"
 	timer := prometheus.NewTimer(GRPCLatency.WithLabelValues(method))
 	defer timer.ObserveDuration()

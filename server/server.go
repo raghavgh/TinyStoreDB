@@ -29,7 +29,7 @@ func StartGRPCServer(cfg *config.Config, kv *store.KVStore) error {
 	} else {
 		grpcServer = grpc.NewServer()
 	}
-	
+
 	tspb.RegisterTinyStoreServiceServer(grpcServer, &TinyStoreHandler{
 		Store: kv,
 	})

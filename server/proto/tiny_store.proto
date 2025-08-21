@@ -9,11 +9,13 @@ service TinyStoreService {
   rpc Get(GetRequest) returns (GetResponse);
   rpc Delete(DeleteRequest) returns (DeleteResponse);
   rpc Compact(CompactRequest) returns (CompactResponse);
+  rpc Exist(ExistRequest) returns (ExistResponse);
 }
 
 message SetRequest {
   string key = 1;
   string value = 2;
+  optional uint64 ttl = 3;
 }
 
 message SetResponse {
@@ -43,6 +45,15 @@ message CompactRequest {}
 
 message CompactResponse {
   bool success = 1;
+  string error = 2;
+}
+
+message ExistRequest {
+  string key = 1;
+}
+
+message ExistResponse {
+  bool value = 1;
   string error = 2;
 }
 
