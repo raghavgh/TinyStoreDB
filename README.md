@@ -9,7 +9,7 @@
 You can run the database with:
 
 ```bash
-docker run -p 7389:7389 -e TINYSTOREDB_PORT=7389 -e TINYSTOREDB_DATA_DIR=/data tinystoredb/tinystoredb:latest
+  docker run -p 7389:7389 -e TINYSTOREDB_PORT=7389 -e TINYSTOREDB_DATA_DIR=/data raghavgh/tinystoredb:latest
 ```
 
 ## 📦 Go Client SDK Usage
@@ -19,7 +19,7 @@ TinyStoreDB provides a simple Go client that you can import in your projects.
 ### Installation
 
 ```bash
-go get github.com/raghavgh/TinyStoreDB/client
+  go get github.com/raghavgh/TinyStoreDB/client
 ```
 
 ### Usage Example
@@ -35,14 +35,17 @@ import (
 )
 
 func main() {
-	cli, err := client.New("localhost:7389")
+	// Create a new client instance, unsecured for simplicity
+	// if you want secure communication,
+        // use cli, err := client.New("localhost:7389", <token>)
+	cli, err := client.New("localhost:7389", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	ctx := context.Background()
 
-	err = cli.Set(ctx, "key1", "value1")
+	err = cli.Set(ctx, "key1", "value1", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
