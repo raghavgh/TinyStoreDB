@@ -11,14 +11,19 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "TinyStoreDB",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Use:   "tinystoredb",
+	Short: "TinyStoreDB CLI - Interact with your lightweight key-value database",
+	Long: `TinyStoreDB is a lightweight, embeddable key-value database built in Go. 
+It supports fast disk-based persistence with optional TTL-based expiry and concurrency-safe operations.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+This CLI tool lets you set, get, and delete keys, configure your connection, and inspect metrics.
+
+Example usage:
+  tinystoredb set mykey myvalue
+  tinystoredb get mykey
+  tinystoredb delete mykey
+
+Use "--help" on any command to learn more.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -38,7 +43,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.TinyStoreDB.yaml)")
+	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.tinystoredb.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

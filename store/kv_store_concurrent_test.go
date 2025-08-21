@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -11,17 +12,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConcurrentSetAndGet(t *testing.T) {
-	client, _ := client.New("localhost:50051") // your grpc client wrapper
+func TestConcurrentSetAndGet(t *testing.T) { // your grpc client wrapper
+	client, _ := client.New(
+		"localhost:7389",
+		toPointer("g6a5g65dfgasd65gdvwej5wr5hw6rh4w"),
+	)
+
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			key := fmt.Sprintf("key%d", i)
 			val := fmt.Sprintf("val%d", i)
-			err := client.Set(context.Background(), key, val)
+			err := client.Set(context.Background(), key, val, nil)
 			if err != nil {
 				t.Errorf("Set failed: %v", err)
 			}
@@ -36,14 +42,14 @@ func TestConcurrentSetAndGet(t *testing.T) {
 }
 
 func TestSimple(t *testing.T) {
-	client, err := client.New("localhost:50051")
+	client, err := client.New("localhost:7389", toPointer("g6a5g65dfgasd65gdvwej5wr5hw6rh4w"))
 	require.NoError(t, err)
 	defer client.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
-	err = client.Set(ctx, "hello", "world")
+	err = client.Set(ctx, "hello", "world", nil)
 	require.NoError(t, err)
 
 	val, err := client.Get(ctx, "hello")
@@ -52,21 +58,21 @@ func TestSimple(t *testing.T) {
 }
 
 func TestCompactionWithEdgeCases(t *testing.T) {
-	client, err := client.New("localhost:50051")
+	client, err := client.New("localhost:7389", toPointer("g6a5g65dfgasd65gdvwej5wr5hw6rh4w"))
 	require.NoError(t, err)
 	defer client.Close()
 
 	ctx := context.Background()
 
 	// Set initial values
-	err = client.Set(ctx, "key1", "val1")
+	err = client.Set(ctx, "key1", "val1", nil)
 	require.NoError(t, err)
 
-	err = client.Set(ctx, "key2", "val2")
+	err = client.Set(ctx, "key2", "val2", nil)
 	require.NoError(t, err)
 
 	// Update key1
-	err = client.Set(ctx, "key1", "val1_updated")
+	err = client.Set(ctx, "key1", "val1_updated", nil)
 	require.NoError(t, err)
 
 	// Delete key2
@@ -75,7 +81,7 @@ func TestCompactionWithEdgeCases(t *testing.T) {
 
 	// Write new keys
 	for i := 3; i <= 10; i++ {
-		err := client.Set(ctx, fmt.Sprintf("key%d", i), fmt.Sprintf("val%d", i))
+		err := client.Set(ctx, fmt.Sprintf("key%d", i), fmt.Sprintf("val%d", i), nil)
 		require.NoError(t, err)
 	}
 
@@ -112,4 +118,8 @@ func TestCompactionWithEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, fmt.Sprintf("val%d", i), val)
 	}
+}
+
+func toPointer[T any](val T) *T {
+	return &val
 }

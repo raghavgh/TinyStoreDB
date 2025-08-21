@@ -56,12 +56,23 @@ func New(addr string, token *string) (*TinyStoreClient, error) {
 	}, nil
 }
 
-func (c *TinyStoreClient) Set(ctx context.Context, key, value string) error {
+func (c *TinyStoreClient) Set(ctx context.Context, key, value string, ttl *uint64) error {
 	_, err := c.client.Set(ctx, &tspb.SetRequest{
 		Key:   key,
-		Value: value,
+		Value: value, Ttl: ttl,
 	})
 	return err
+}
+
+func (c *TinyStoreClient) Exist(ctx context.Context, key string) (bool, error) {
+	exist, err := c.client.Exist(ctx, &tspb.ExistRequest{
+		Key: key,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return exist.Value, nil
 }
 
 func (c *TinyStoreClient) Get(ctx context.Context, key string) (string, error) {

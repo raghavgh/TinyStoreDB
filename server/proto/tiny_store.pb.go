@@ -26,6 +26,7 @@ type SetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Ttl           *uint64                `protobuf:"varint,3,opt,name=ttl,proto3,oneof" json:"ttl,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -72,6 +73,13 @@ func (x *SetRequest) GetValue() string {
 		return x.Value
 	}
 	return ""
+}
+
+func (x *SetRequest) GetTtl() uint64 {
+	if x != nil && x.Ttl != nil {
+		return *x.Ttl
+	}
+	return 0
 }
 
 type SetResponse struct {
@@ -406,15 +414,113 @@ func (x *CompactResponse) GetError() string {
 	return ""
 }
 
+type ExistRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExistRequest) Reset() {
+	*x = ExistRequest{}
+	mi := &file_server_proto_tiny_store_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExistRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExistRequest) ProtoMessage() {}
+
+func (x *ExistRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_server_proto_tiny_store_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExistRequest.ProtoReflect.Descriptor instead.
+func (*ExistRequest) Descriptor() ([]byte, []int) {
+	return file_server_proto_tiny_store_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ExistRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+type ExistResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         bool                   `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExistResponse) Reset() {
+	*x = ExistResponse{}
+	mi := &file_server_proto_tiny_store_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExistResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExistResponse) ProtoMessage() {}
+
+func (x *ExistResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_server_proto_tiny_store_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExistResponse.ProtoReflect.Descriptor instead.
+func (*ExistResponse) Descriptor() ([]byte, []int) {
+	return file_server_proto_tiny_store_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ExistResponse) GetValue() bool {
+	if x != nil {
+		return x.Value
+	}
+	return false
+}
+
+func (x *ExistResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 var File_server_proto_tiny_store_proto protoreflect.FileDescriptor
 
 const file_server_proto_tiny_store_proto_rawDesc = "" +
 	"\n" +
-	"\x1dserver/proto/tiny_store.proto\x12\ttinystore\"4\n" +
+	"\x1dserver/proto/tiny_store.proto\x12\ttinystore\"S\n" +
 	"\n" +
 	"SetRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"=\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\x12\x15\n" +
+	"\x03ttl\x18\x03 \x01(\x04H\x00R\x03ttl\x88\x01\x01B\x06\n" +
+	"\x04_ttl\"=\n" +
 	"\vSetResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"\x1e\n" +
@@ -432,12 +538,18 @@ const file_server_proto_tiny_store_proto_rawDesc = "" +
 	"\x0eCompactRequest\"A\n" +
 	"\x0fCompactResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error2\xff\x01\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\" \n" +
+	"\fExistRequest\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\";\n" +
+	"\rExistResponse\x12\x14\n" +
+	"\x05value\x18\x01 \x01(\bR\x05value\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error2\xbb\x02\n" +
 	"\x10TinyStoreService\x124\n" +
 	"\x03Set\x12\x15.tinystore.SetRequest\x1a\x16.tinystore.SetResponse\x124\n" +
 	"\x03Get\x12\x15.tinystore.GetRequest\x1a\x16.tinystore.GetResponse\x12=\n" +
 	"\x06Delete\x12\x18.tinystore.DeleteRequest\x1a\x19.tinystore.DeleteResponse\x12@\n" +
-	"\aCompact\x12\x19.tinystore.CompactRequest\x1a\x1a.tinystore.CompactResponseB3Z1github.com/raghavgh/TinyStoreDB/server/proto;tspbb\x06proto3"
+	"\aCompact\x12\x19.tinystore.CompactRequest\x1a\x1a.tinystore.CompactResponse\x12:\n" +
+	"\x05Exist\x12\x17.tinystore.ExistRequest\x1a\x18.tinystore.ExistResponseB3Z1github.com/raghavgh/TinyStoreDB/server/proto;tspbb\x06proto3"
 
 var (
 	file_server_proto_tiny_store_proto_rawDescOnce sync.Once
@@ -451,7 +563,7 @@ func file_server_proto_tiny_store_proto_rawDescGZIP() []byte {
 	return file_server_proto_tiny_store_proto_rawDescData
 }
 
-var file_server_proto_tiny_store_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_server_proto_tiny_store_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_server_proto_tiny_store_proto_goTypes = []any{
 	(*SetRequest)(nil),      // 0: tinystore.SetRequest
 	(*SetResponse)(nil),     // 1: tinystore.SetResponse
@@ -461,18 +573,22 @@ var file_server_proto_tiny_store_proto_goTypes = []any{
 	(*DeleteResponse)(nil),  // 5: tinystore.DeleteResponse
 	(*CompactRequest)(nil),  // 6: tinystore.CompactRequest
 	(*CompactResponse)(nil), // 7: tinystore.CompactResponse
+	(*ExistRequest)(nil),    // 8: tinystore.ExistRequest
+	(*ExistResponse)(nil),   // 9: tinystore.ExistResponse
 }
 var file_server_proto_tiny_store_proto_depIdxs = []int32{
 	0, // 0: tinystore.TinyStoreService.Set:input_type -> tinystore.SetRequest
 	2, // 1: tinystore.TinyStoreService.Get:input_type -> tinystore.GetRequest
 	4, // 2: tinystore.TinyStoreService.Delete:input_type -> tinystore.DeleteRequest
 	6, // 3: tinystore.TinyStoreService.Compact:input_type -> tinystore.CompactRequest
-	1, // 4: tinystore.TinyStoreService.Set:output_type -> tinystore.SetResponse
-	3, // 5: tinystore.TinyStoreService.Get:output_type -> tinystore.GetResponse
-	5, // 6: tinystore.TinyStoreService.Delete:output_type -> tinystore.DeleteResponse
-	7, // 7: tinystore.TinyStoreService.Compact:output_type -> tinystore.CompactResponse
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
+	8, // 4: tinystore.TinyStoreService.Exist:input_type -> tinystore.ExistRequest
+	1, // 5: tinystore.TinyStoreService.Set:output_type -> tinystore.SetResponse
+	3, // 6: tinystore.TinyStoreService.Get:output_type -> tinystore.GetResponse
+	5, // 7: tinystore.TinyStoreService.Delete:output_type -> tinystore.DeleteResponse
+	7, // 8: tinystore.TinyStoreService.Compact:output_type -> tinystore.CompactResponse
+	9, // 9: tinystore.TinyStoreService.Exist:output_type -> tinystore.ExistResponse
+	5, // [5:10] is the sub-list for method output_type
+	0, // [0:5] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -483,13 +599,14 @@ func file_server_proto_tiny_store_proto_init() {
 	if File_server_proto_tiny_store_proto != nil {
 		return
 	}
+	file_server_proto_tiny_store_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_server_proto_tiny_store_proto_rawDesc), len(file_server_proto_tiny_store_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

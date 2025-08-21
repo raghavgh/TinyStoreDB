@@ -63,7 +63,6 @@ func (w *TinyFile) ReadAll(newMessage func() proto.Message) ([]proto.Message, er
 }
 
 func (w *TinyFile) ReadAt(offset uint64, messageData proto.Message) error {
-
 	var lengthPrefix uint32
 
 	lengthBuf := make([]byte, 4)
@@ -170,7 +169,7 @@ func (w *TinyFile) Rename(name string) error {
 	w.file.Close()
 
 	file, err := os.OpenFile(name,
-		os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
 		return err
 	}
@@ -182,7 +181,7 @@ func (w *TinyFile) Rename(name string) error {
 
 func New(name string) (*TinyFile, error) {
 	file, err := os.OpenFile(name,
-		os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
 		return nil, err
 	}

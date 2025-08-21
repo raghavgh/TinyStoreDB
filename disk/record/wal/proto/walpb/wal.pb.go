@@ -25,8 +25,9 @@ type WALRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Offset        uint64                 `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
-	Timestamp     uint64                 `protobuf:"varint,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"` // optional
-	Deleted       bool                   `protobuf:"varint,4,opt,name=deleted,proto3" json:"deleted,omitempty"`     // tombstone
+	Timestamp     *uint64                `protobuf:"varint,3,opt,name=timestamp,proto3,oneof" json:"timestamp,omitempty"` // optional
+	Deleted       bool                   `protobuf:"varint,4,opt,name=deleted,proto3" json:"deleted,omitempty"`           // tombstone
+	Ttl           *uint64                `protobuf:"varint,5,opt,name=ttl,proto3,oneof" json:"ttl,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -76,8 +77,8 @@ func (x *WALRecord) GetOffset() uint64 {
 }
 
 func (x *WALRecord) GetTimestamp() uint64 {
-	if x != nil {
-		return x.Timestamp
+	if x != nil && x.Timestamp != nil {
+		return *x.Timestamp
 	}
 	return 0
 }
@@ -89,16 +90,27 @@ func (x *WALRecord) GetDeleted() bool {
 	return false
 }
 
+func (x *WALRecord) GetTtl() uint64 {
+	if x != nil && x.Ttl != nil {
+		return *x.Ttl
+	}
+	return 0
+}
+
 var File_wal_proto protoreflect.FileDescriptor
 
 const file_wal_proto_rawDesc = "" +
 	"\n" +
-	"\twal.proto\x12\x03wal\"m\n" +
+	"\twal.proto\x12\x03wal\"\x9f\x01\n" +
 	"\tWALRecord\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x16\n" +
-	"\x06offset\x18\x02 \x01(\x04R\x06offset\x12\x1c\n" +
-	"\ttimestamp\x18\x03 \x01(\x04R\ttimestamp\x12\x18\n" +
-	"\adeleted\x18\x04 \x01(\bR\adeletedB\rZ\vproto/walpbb\x06proto3"
+	"\x06offset\x18\x02 \x01(\x04R\x06offset\x12!\n" +
+	"\ttimestamp\x18\x03 \x01(\x04H\x00R\ttimestamp\x88\x01\x01\x12\x18\n" +
+	"\adeleted\x18\x04 \x01(\bR\adeleted\x12\x15\n" +
+	"\x03ttl\x18\x05 \x01(\x04H\x01R\x03ttl\x88\x01\x01B\f\n" +
+	"\n" +
+	"_timestampB\x06\n" +
+	"\x04_ttlB\rZ\vproto/walpbb\x06proto3"
 
 var (
 	file_wal_proto_rawDescOnce sync.Once
@@ -129,6 +141,7 @@ func file_wal_proto_init() {
 	if File_wal_proto != nil {
 		return
 	}
+	file_wal_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

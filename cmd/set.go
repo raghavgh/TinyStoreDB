@@ -44,7 +44,7 @@ to quickly create a Cobra application.`,
 			return
 		}
 
-		err = kvStore.Set(key, value)
+		err = kvStore.Set(key, value, nil)
 		if err != nil {
 			fmt.Println("Error:", err)
 
