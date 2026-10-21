@@ -70,6 +70,7 @@ func runREPL() {
 			fmt.Println("  DEL <key>                      - Delete a key")
 			fmt.Println("  EXIST <key>                    - Check if a key exists")
 			fmt.Println("  COMPACT                        - Trigger storage compaction")
+			fmt.Println("  INSPECT [dir]                  - View raw on-disk storage, offsets, & tombstones")
 			fmt.Println("  EXIT / QUIT                    - Close the shell")
 
 		case "get":
@@ -141,6 +142,18 @@ func runREPL() {
 				fmt.Printf("(error) %v\n", err)
 			} else {
 				fmt.Println("OK (compaction complete)")
+			}
+
+		case "inspect":
+			targetDir := "data"
+			if len(parts) >= 2 {
+				targetDir = parts[1]
+			}
+			records, summary, walPath, valPath, err := ReadDiskRecords(targetDir)
+			if err != nil {
+				fmt.Printf("(error) failed to inspect %q: %v\n", targetDir, err)
+			} else {
+				PrintInspectTable(os.Stdout, targetDir, walPath, valPath, records, summary)
 			}
 
 		default:
