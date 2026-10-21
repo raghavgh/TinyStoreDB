@@ -9,7 +9,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/raghavgh/TinyStoreDB/asynclogger"
-	"github.com/raghavgh/TinyStoreDB/cmd"
 	"github.com/raghavgh/TinyStoreDB/config"
 	"github.com/raghavgh/TinyStoreDB/server"
 	"github.com/raghavgh/TinyStoreDB/store"
@@ -28,10 +27,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("metrics server failed: %v", err)
 		}
-	}()
-
-	go func() {
-		cmd.Execute()
 	}()
 
 	kv, err := store.NewKVStore(cfg)

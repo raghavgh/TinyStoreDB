@@ -13,20 +13,22 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "tinystoredb",
 	Short: "TinyStoreDB CLI - Interact with your lightweight key-value database",
-	Long: `TinyStoreDB is a lightweight, embeddable key-value database built in Go. 
+	Long: `TinyStoreDB is a lightweight, embeddable key-value database built in Go.
 It supports fast disk-based persistence with optional TTL-based expiry and concurrency-safe operations.
 
-This CLI tool lets you set, get, and delete keys, configure your connection, and inspect metrics.
+Running 'tinystoredb' with no arguments starts an interactive shell (REPL).
+Alternatively, you can run one-shot commands:
 
-Example usage:
   tinystoredb set mykey myvalue
   tinystoredb get mykey
   tinystoredb delete mykey
+  tinystoredb exist mykey
+  tinystoredb compact
 
 Use "--help" on any command to learn more.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Run: func(cmd *cobra.Command, args []string) {
+		runREPL()
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -39,13 +41,7 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.tinystoredb.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.PersistentFlags().StringVarP(&hostFlag, "host", "H", "", "TinyStoreDB server host (default: localhost or env TINYSTOREDB_HOST)")
+	rootCmd.PersistentFlags().IntVarP(&portFlag, "port", "P", 0, "TinyStoreDB server port (default: 7389 or env TINYSTOREDB_PORT)")
+	rootCmd.PersistentFlags().StringVarP(&secretFlag, "secret", "s", "", "Auth secret (default: none or env TINYSTOREDB_SECRET)")
 }

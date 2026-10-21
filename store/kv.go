@@ -37,6 +37,7 @@ func (kv *KVStore) Compact() error {
 
 	newValueLog, err := files.New(kv.fullPath("value_log_new.bin"))
 	if err != nil {
+		_ = newWal.Close(true)
 		return err
 	}
 
@@ -44,14 +45,12 @@ func (kv *KVStore) Compact() error {
 	_writerBarrier.Store(true)
 	defer _writerBarrier.Store(false)
 
-	walRecord := &walpb.WALRecord{}
-
-	kv.wal.ReadAt(0, walRecord)
-
 	snapShotWalRecords, err := kv.wal.ReadAll(func() proto.Message {
 		return &walpb.WALRecord{}
 	})
 	if err != nil {
+		_ = newWal.Close(true)
+		_ = newValueLog.Close(true)
 		return err
 	}
 
@@ -80,6 +79,8 @@ func (kv *KVStore) Compact() error {
 		value := &value_log_pb.ValueLogRecord{}
 		err := kv.valueLog.ReadAt(offset, value)
 		if err != nil {
+			_ = newWal.Close(true)
+			_ = newValueLog.Close(true)
 			return err
 		}
 
@@ -89,6 +90,8 @@ func (kv *KVStore) Compact() error {
 
 		newOffset, appendErr := newValueLog.Append(value)
 		if appendErr != nil {
+			_ = newWal.Close(true)
+			_ = newValueLog.Close(true)
 			return appendErr
 		}
 
@@ -98,49 +101,39 @@ func (kv *KVStore) Compact() error {
 			Timestamp: walRecord.Timestamp,
 		})
 		if appendErr != nil {
+			_ = newWal.Close(true)
+			_ = newValueLog.Close(true)
 			return appendErr
 		}
 
 		seenMap.Put(walRecord.Key, struct{}{})
 	}
 
-	err = kv.wal.Rename(kv.fullPath("wal_old.bin"))
-	if err != nil {
-		return err
-	}
-
-	err = kv.valueLog.Rename(kv.fullPath("value_log_old.bin"))
-	if err != nil {
-		return err
-	}
+	_readBarrier.Store(true)
+	defer _readBarrier.Store(false)
 
 	oldWal := kv.wal
 	oldValueLog := kv.valueLog
 
+	// Close old files before atomically replacing them
+	_ = oldWal.Close(false)
+	_ = oldValueLog.Close(false)
+
+	targetWal := kv.fullPath(kv.walFileName)
+	targetValueLog := kv.fullPath(kv.valueFileName)
+
+	if err := newWal.Rename(targetWal); err != nil {
+		return err
+	}
+
+	if err := newValueLog.Rename(targetValueLog); err != nil {
+		return err
+	}
+
 	kv.wal = newWal
 	kv.valueLog = newValueLog
 
-	_ = kv.wal.Rename(kv.fullPath("wal.bin"))
-	_ = kv.valueLog.Rename(kv.fullPath("value_log.bin"))
-
-	_readBarrier.Store(true)
-
 	_ = kv.Replay()
-
-	_readBarrier.Store(false)
-
-	_writerBarrier.Store(false)
-
-	// close old files
-	err = oldWal.Close(true)
-	if err != nil {
-		log.Printf("error while closing old wal file: %s", err.Error())
-	}
-
-	err = oldValueLog.Close(true)
-	if err != nil {
-		log.Printf("error while closing old value log file: %s", err.Error())
-	}
 
 	return nil
 }
@@ -239,7 +232,6 @@ func (kv *KVStore) Set(key string, value string, ttl *uint64) error {
 		return err
 	}
 
-	kv.inMemoryIndex.Put(key, offset)
 	_, err = kv.wal.Append(&walpb.WALRecord{
 		Key:       key,
 		Offset:    offset,
@@ -247,14 +239,10 @@ func (kv *KVStore) Set(key string, value string, ttl *uint64) error {
 		Ttl:       ttl,
 	})
 	if err != nil {
-		// remove from in-memory index, to prevent garbage data.
-		kv.inMemoryIndex.Delete(key)
-
-		// TODO: also remove from value log, once we have a way to do that.
-
 		return err
 	}
 
+	kv.inMemoryIndex.Put(key, offset)
 	return nil
 }
 
@@ -325,31 +313,26 @@ func ensureDirExists(path string) {
 func NewKVStore(cfg *config.Config) (*KVStore, error) {
 	ensureDirExists(cfg.DataDir)
 
+	walBase := "wal.bin"
+	valueLogBase := "value_log.bin"
+	if _test {
+		walBase = "wal_test.bin"
+		valueLogBase = "value_log_test.bin"
+	}
+
 	kvStore := &KVStore{
 		inMemoryIndex: thread_safe_map.New[string, uint64](),
 		dataDirectory: cfg.DataDir,
+		walFileName:   walBase,
+		valueFileName: valueLogBase,
 	}
 
-	walFileName := func() string {
-		if _test {
-			return kvStore.fullPath("wal_test.bin")
-		}
-		return kvStore.fullPath("wal.bin")
-	}()
-
-	writeAheadLog, err := files.New(walFileName)
+	writeAheadLog, err := files.New(kvStore.fullPath(walBase))
 	if err != nil {
 		return nil, err
 	}
 
-	valueLogFileName := func() string {
-		if _test {
-			return kvStore.fullPath("value_log_test.bin")
-		}
-		return kvStore.fullPath("value_log.bin")
-	}()
-
-	valueLog, err := files.New(valueLogFileName)
+	valueLog, err := files.New(kvStore.fullPath(valueLogBase))
 	if err != nil {
 		return nil, err
 	}
@@ -365,4 +348,6 @@ type KVStore struct {
 	wal           disk.Disk
 	valueLog      disk.Disk
 	dataDirectory string
+	walFileName   string
+	valueFileName string
 }

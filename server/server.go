@@ -10,6 +10,25 @@ import (
 	"google.golang.org/grpc"
 )
 
+// NewGRPCServer creates and configures a gRPC server for TinyStoreDB.
+func NewGRPCServer(kv *store.KVStore, secret *string) *grpc.Server {
+	var grpcServer *grpc.Server
+
+	if secret != nil {
+		interceptor := AuthInterceptor(config.Unpack(secret))
+		grpcServer = grpc.NewServer(grpc.UnaryInterceptor(interceptor))
+	} else {
+		grpcServer = grpc.NewServer()
+	}
+
+	tspb.RegisterTinyStoreServiceServer(grpcServer, &TinyStoreHandler{
+		Store: kv,
+	})
+
+	return grpcServer
+}
+
+// StartGRPCServer initializes the store replay, binds to the configured port, and starts serving.
 func StartGRPCServer(cfg *config.Config, kv *store.KVStore) error {
 	err := kv.Replay()
 	if err != nil {
@@ -21,19 +40,7 @@ func StartGRPCServer(cfg *config.Config, kv *store.KVStore) error {
 		return err
 	}
 
-	var grpcServer *grpc.Server
-
-	if cfg.Secret != nil {
-		interceptor := AuthInterceptor(config.Unpack(cfg.Secret))
-		grpcServer = grpc.NewServer(grpc.UnaryInterceptor(interceptor))
-	} else {
-		grpcServer = grpc.NewServer()
-	}
-
-	tspb.RegisterTinyStoreServiceServer(grpcServer, &TinyStoreHandler{
-		Store: kv,
-	})
-
+	grpcServer := NewGRPCServer(kv, cfg.Secret)
 	log.Printf("🚀 gRPC server listening on %s", cfg.Port)
 	return grpcServer.Serve(lis)
 }

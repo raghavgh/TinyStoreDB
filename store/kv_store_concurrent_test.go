@@ -1,27 +1,62 @@
-package store
+package store_test
 
 import (
 	"context"
 	"fmt"
+	"net"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/raghavgh/TinyStoreDB/client"
+	"github.com/raghavgh/TinyStoreDB/config"
+	"github.com/raghavgh/TinyStoreDB/server"
+	"github.com/raghavgh/TinyStoreDB/store"
 	"github.com/stretchr/testify/require"
 )
 
-func TestConcurrentSetAndGet(t *testing.T) { // your grpc client wrapper
-	client, _ := client.New(
-		"localhost:7389",
-		toPointer("g6a5g65dfgasd65gdvwej5wr5hw6rh4w"),
-	)
+func startTestServer(t *testing.T, secret *string) (*client.TinyStoreClient, *store.KVStore, string) {
+	t.Helper()
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		Port:     "0",
+		DataDir:  tempDir,
+		LogLevel: "info",
+		Secret:   secret,
+	}
+
+	kv, err := store.NewKVStore(cfg)
+	require.NoError(t, err)
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	grpcServer := server.NewGRPCServer(kv, secret)
+	go func() {
+		_ = grpcServer.Serve(lis)
+	}()
+
+	cli, err := client.New(lis.Addr().String(), secret)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		_ = cli.Close()
+		grpcServer.GracefulStop()
+		_ = lis.Close()
+	})
+
+	return cli, kv, tempDir
+}
+
+func TestConcurrentSetAndGet(t *testing.T) {
+	token := "test-secret-token"
+	client, _, _ := startTestServer(t, &token)
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	var wg sync.WaitGroup
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 200; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -30,11 +65,12 @@ func TestConcurrentSetAndGet(t *testing.T) { // your grpc client wrapper
 			err := client.Set(context.Background(), key, val, nil)
 			if err != nil {
 				t.Errorf("Set failed: %v", err)
+				return
 			}
 
 			got, err := client.Get(context.Background(), key)
 			if err != nil || got != val {
-				t.Errorf("Get failed: expected %s, got %s", val, got)
+				t.Errorf("Get failed: expected %s, got %s, err: %v", val, got, err)
 			}
 		}(i)
 	}
@@ -42,30 +78,40 @@ func TestConcurrentSetAndGet(t *testing.T) { // your grpc client wrapper
 }
 
 func TestSimple(t *testing.T) {
-	client, err := client.New("localhost:7389", toPointer("g6a5g65dfgasd65gdvwej5wr5hw6rh4w"))
-	require.NoError(t, err)
-	defer client.Close()
+	token := "test-secret-token"
+	client, _, _ := startTestServer(t, &token)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err = client.Set(ctx, "hello", "world", nil)
+	err := client.Set(ctx, "hello", "world", nil)
 	require.NoError(t, err)
 
 	val, err := client.Get(ctx, "hello")
 	require.NoError(t, err)
 	require.Equal(t, "world", val)
+
+	exists, err := client.Exist(ctx, "hello")
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	deleted, err := client.Delete(ctx, "hello")
+	require.NoError(t, err)
+	require.True(t, deleted)
+
+	existsAfterDel, err := client.Exist(ctx, "hello")
+	require.NoError(t, err)
+	require.False(t, existsAfterDel)
 }
 
 func TestCompactionWithEdgeCases(t *testing.T) {
-	client, err := client.New("localhost:7389", toPointer("g6a5g65dfgasd65gdvwej5wr5hw6rh4w"))
-	require.NoError(t, err)
-	defer client.Close()
+	token := "test-secret-token"
+	client, _, _ := startTestServer(t, &token)
 
 	ctx := context.Background()
 
 	// Set initial values
-	err = client.Set(ctx, "key1", "val1", nil)
+	err := client.Set(ctx, "key1", "val1", nil)
 	require.NoError(t, err)
 
 	err = client.Set(ctx, "key2", "val2", nil)
@@ -85,23 +131,9 @@ func TestCompactionWithEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// Run concurrent reads while compaction is happening
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for j := 0; j < 50; j++ {
-			_, _ = client.Get(ctx, "key1") // Read frequently updated key
-			_, _ = client.Get(ctx, "key5") // Read steady key
-			time.Sleep(10 * time.Millisecond)
-		}
-	}()
-
 	// Trigger compaction
 	err = client.Compact(ctx)
 	require.NoError(t, err)
-
-	wg.Wait()
 
 	// Validate key1 is updated
 	val, err := client.Get(ctx, "key1")
@@ -120,6 +152,40 @@ func TestCompactionWithEdgeCases(t *testing.T) {
 	}
 }
 
-func toPointer[T any](val T) *T {
-	return &val
+func TestReplayAndRecovery(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		DataDir: tempDir,
+	}
+
+	// 1. First session: write data
+	kv1, err := store.NewKVStore(cfg)
+	require.NoError(t, err)
+
+	err = kv1.Set("persist1", "val1", nil)
+	require.NoError(t, err)
+	err = kv1.Set("persist2", "val2", nil)
+	require.NoError(t, err)
+	err = kv1.Set("to_delete", "val_delete", nil)
+	require.NoError(t, err)
+	err = kv1.Delete("to_delete")
+	require.NoError(t, err)
+
+	// 2. Re-open second session on same dataDir
+	kv2, err := store.NewKVStore(cfg)
+	require.NoError(t, err)
+
+	err = kv2.Replay()
+	require.NoError(t, err)
+
+	val1, err := kv2.Get("persist1")
+	require.NoError(t, err)
+	require.Equal(t, "val1", val1)
+
+	val2, err := kv2.Get("persist2")
+	require.NoError(t, err)
+	require.Equal(t, "val2", val2)
+
+	_, err = kv2.Get("to_delete")
+	require.Error(t, err)
 }

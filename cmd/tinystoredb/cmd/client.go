@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"log"
 	"strconv"
 
 	"github.com/raghavgh/TinyStoreDB/client"
@@ -10,16 +9,23 @@ import (
 func getClient() (*client.TinyStoreClient, error) {
 	cfg, err := loadConfig()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	secret := func() *string {
-		if cfg.Secret == "" {
-			return nil
-		}
-
-		return &cfg.Secret
+	if hostFlag != "" {
+		cfg.Host = hostFlag
+	}
+	if portFlag != 0 {
+		cfg.Port = portFlag
+	}
+	if secretFlag != "" {
+		cfg.Secret = secretFlag
 	}
 
-	return client.New(cfg.Host+":"+strconv.Itoa(cfg.Port), secret())
+	var secret *string
+	if cfg.Secret != "" {
+		secret = &cfg.Secret
+	}
+
+	return client.New(cfg.Host+":"+strconv.Itoa(cfg.Port), secret)
 }

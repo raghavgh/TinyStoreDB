@@ -12,6 +12,60 @@ You can run the database with:
   docker run -p 7389:7389 -e TINYSTOREDB_PORT=7389 -e TINYSTOREDB_DATA_DIR=/data raghavgh/tinystoredb:latest
 ```
 
+## 💻 CLI & Terminal Usage
+
+TinyStoreDB includes a built-in CLI tool (`tinystoredb`) with both an interactive shell (REPL) and one-shot commands.
+
+### Using CLI with Docker
+
+Run the database container:
+```bash
+docker run -d -p 7389:7389 --name tinystore raghavgh/tinystoredb:latest
+```
+
+Launch the interactive REPL shell (similar to `redis-cli`):
+```bash
+docker exec -it tinystore tinystoredb
+```
+
+```text
+Connected to TinyStoreDB at localhost:7389
+Type 'help' for commands, 'exit' or 'quit' to quit.
+localhost:7389> SET user:1 Alice
+OK
+localhost:7389> GET user:1
+"Alice"
+localhost:7389> EXIST user:1
+(integer) 1
+localhost:7389> DEL user:1
+OK
+localhost:7389> COMPACT
+OK (compaction complete)
+localhost:7389> quit
+Bye!
+```
+
+Or execute one-shot commands directly:
+```bash
+docker exec -it tinystore tinystoredb set key1 value1
+docker exec -it tinystore tinystoredb get key1
+docker exec -it tinystore tinystoredb delete key1
+docker exec -it tinystore tinystoredb compact
+```
+
+### Using CLI Locally
+
+Build the CLI binary:
+```bash
+go build -o tinystoredb ./cmd/tinystoredb/main.go
+```
+
+Connect to any local or remote TinyStoreDB server:
+```bash
+./tinystoredb --host localhost --port 7389 get key1
+```
+
+
 ## 📦 Go Client SDK Usage
 
 TinyStoreDB provides a simple Go client that you can import in your projects.
@@ -37,7 +91,7 @@ import (
 func main() {
 	// Create a new client instance, unsecured for simplicity
 	// if you want secure communication,
-        // use cli, err := client.New("localhost:7389", <token>)
+	// use cli, err := client.New("localhost:7389", <token>)
 	cli, err := client.New("localhost:7389", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -76,6 +130,7 @@ func main() {
 - ✅ Tombstone support for deletes
 - ✅ Compaction to reclaim disk space
 - ✅ Concurrency-safe operations (read/write)
+- ✅ Interactive CLI shell (REPL) and terminal commands
 - ✅ Basic observability with Prometheus metrics
 - ✅ Configurable port and data directory via environment variables
 - ✅ Dockerized setup for easy deployment
@@ -105,4 +160,4 @@ For any queries or feedback, feel free to reach out via:
 - **👤 Linkedin:** *https://www.linkedin.com/in/raghavpaliwal/*
 - **🐙 GitHub Issues:** *[Github Issues page](https://github.com/raghavgh/TinyStoreDB/issues)*
 
----</file>
+---

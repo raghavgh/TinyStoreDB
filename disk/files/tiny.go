@@ -144,6 +144,9 @@ func (w *TinyFile) SetOffset(offset uint64) {
 }
 
 func (w *TinyFile) Close(delete bool) error {
+	w.Lock()
+	defer w.Unlock()
+
 	if delete {
 		err := os.Remove(w.file.Name())
 		if err != nil {
@@ -161,6 +164,9 @@ func (w *TinyFile) Close(delete bool) error {
 
 // Rename renames the file to the given name.
 func (w *TinyFile) Rename(name string) error {
+	w.Lock()
+	defer w.Unlock()
+
 	err := os.Rename(w.file.Name(), name)
 	if err != nil {
 		return err
