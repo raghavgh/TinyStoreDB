@@ -3,14 +3,9 @@ name: Build and Push Docker Image
 on:
   push:
     branches:
-      - master  # or 'master' if your default branch is that
-    paths:
-      - Dockerfile
-      - docker-entrypoint.sh
-      - '**/*.go'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/docker-publish.yml'
+      - master
+    tags:
+      - 'v*'
 
 jobs:
   build-and-push:
@@ -19,6 +14,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: raghavgh/tinystoredb
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -35,4 +41,5 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: raghavgh/tinystoredb:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
