@@ -131,9 +131,23 @@ func TestCompactionWithEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	// Run concurrent reads while compaction is happening
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for j := 0; j < 50; j++ {
+			_, _ = client.Get(ctx, "key1") // Read frequently updated key
+			_, _ = client.Get(ctx, "key5") // Read steady key
+			time.Sleep(2 * time.Millisecond)
+		}
+	}()
+
 	// Trigger compaction
 	err = client.Compact(ctx)
 	require.NoError(t, err)
+
+	wg.Wait()
 
 	// Validate key1 is updated
 	val, err := client.Get(ctx, "key1")
