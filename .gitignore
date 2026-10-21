@@ -27,3 +27,5 @@ go.work.sum
 *.bin
 *.idea
 *.DS_Store
+tinystoredb
+tinystoredb-server
