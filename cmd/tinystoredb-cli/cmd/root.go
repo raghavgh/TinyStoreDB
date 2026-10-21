@@ -11,19 +11,19 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "tinystoredb",
+	Use:   "tinystoredb-cli",
 	Short: "TinyStoreDB CLI - Interact with your lightweight key-value database",
-	Long: `TinyStoreDB is a lightweight, embeddable key-value database built in Go.
+	Long: `TinyStoreDB CLI is the official terminal client for TinyStoreDB.
 It supports fast disk-based persistence with optional TTL-based expiry and concurrency-safe operations.
 
-Running 'tinystoredb' with no arguments starts an interactive shell (REPL).
+Running 'tinystoredb-cli' with no arguments starts an interactive shell (REPL).
 Alternatively, you can run one-shot commands:
 
-  tinystoredb set mykey myvalue
-  tinystoredb get mykey
-  tinystoredb delete mykey
-  tinystoredb exist mykey
-  tinystoredb compact
+  tinystoredb-cli set mykey myvalue
+  tinystoredb-cli get mykey
+  tinystoredb-cli delete mykey
+  tinystoredb-cli exist mykey
+  tinystoredb-cli compact
 
 Use "--help" on any command to learn more.`,
 	Run: func(cmd *cobra.Command, args []string) {

@@ -4,30 +4,40 @@
 🚧 **Note:** This project is under active development and approaching an MVP-ready state.
 
 
-## 🐳 Docker Usage
+## 🐳 Docker Usage (Server)
 
-You can run the database with:
+Run the database server with Docker:
 
 ```bash
-  docker run -p 7389:7389 -e TINYSTOREDB_PORT=7389 -e TINYSTOREDB_DATA_DIR=/data raghavgh/tinystoredb:latest
+docker run -d -p 7389:7389 --name tinystore -e TINYSTOREDB_PORT=7389 -e TINYSTOREDB_DATA_DIR=/data raghavgh/tinystoredb:latest
 ```
 
-## 💻 CLI & Terminal Usage
+---
 
-TinyStoreDB includes a built-in CLI tool (`tinystoredb`) with both an interactive shell (REPL) and one-shot commands.
+## 💻 Terminal CLI Usage (`tinystoredb-cli`)
 
-### Using CLI with Docker
+TinyStoreDB includes an official terminal client (`tinystoredb-cli`) with an interactive shell (REPL) and one-shot commands, similar to `redis-cli`.
 
-Run the database container:
+### 1. Install the CLI
+
+Install with the 1-line installer (Mac & Linux):
 ```bash
-docker run -d -p 7389:7389 --name tinystore raghavgh/tinystoredb:latest
+curl -fsSL https://raw.githubusercontent.com/raghavgh/TinyStoreDB/master/install.sh | sh
 ```
 
-Launch the interactive REPL shell (similar to `redis-cli`):
+Or install with Go:
 ```bash
-docker exec -it tinystore tinystoredb
+go install github.com/raghavgh/TinyStoreDB/cmd/tinystoredb-cli@latest
 ```
 
+### 2. Connect to the Database
+
+In a separate terminal, simply run:
+```bash
+tinystoredb-cli
+```
+
+You are immediately dropped into the interactive shell:
 ```text
 Connected to TinyStoreDB at localhost:7389
 Type 'help' for commands, 'exit' or 'quit' to quit.
@@ -45,26 +55,20 @@ localhost:7389> quit
 Bye!
 ```
 
-Or execute one-shot commands directly:
+Or execute one-shot commands directly from your terminal:
 ```bash
-docker exec -it tinystore tinystoredb set key1 value1
-docker exec -it tinystore tinystoredb get key1
-docker exec -it tinystore tinystoredb delete key1
-docker exec -it tinystore tinystoredb compact
+tinystoredb-cli set key1 value1
+tinystoredb-cli get key1
+tinystoredb-cli delete key1
+tinystoredb-cli compact
 ```
 
-### Using CLI Locally
-
-Build the CLI binary:
+Connect to a remote or custom host:
 ```bash
-go build -o tinystoredb ./cmd/tinystoredb/main.go
+tinystoredb-cli --host 192.168.1.50 --port 7389 get key1
 ```
 
-Connect to any local or remote TinyStoreDB server:
-```bash
-./tinystoredb --host localhost --port 7389 get key1
-```
-
+---
 
 ## 📦 Go Client SDK Usage
 
@@ -130,7 +134,7 @@ func main() {
 - ✅ Tombstone support for deletes
 - ✅ Compaction to reclaim disk space
 - ✅ Concurrency-safe operations (read/write)
-- ✅ Interactive CLI shell (REPL) and terminal commands
+- ✅ Interactive CLI shell (`tinystoredb-cli`) like `redis-cli`
 - ✅ Basic observability with Prometheus metrics
 - ✅ Configurable port and data directory via environment variables
 - ✅ Dockerized setup for easy deployment
