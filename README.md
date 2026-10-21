@@ -51,6 +51,10 @@ localhost:7389> DEL user:1
 OK
 localhost:7389> COMPACT
 OK (compaction complete)
+localhost:7389> INSPECT
+====================================================================================================
+  🔍 TinyStoreDB Storage Engine Inspector (Directory: data)
+...
 localhost:7389> quit
 Bye!
 ```
@@ -67,6 +71,39 @@ Connect to a remote or custom host:
 ```bash
 tinystoredb-cli --host 192.168.1.50 --port 7389 get key1
 ```
+
+### 3. Inspect On-Disk Storage & Tombstones (`tinystoredb-cli inspect`)
+
+Debugging raw binary `.bin` files directly can be challenging. TinyStoreDB provides a built-in diagnostic inspector (similar to `sst_dump` in RocksDB or `badger dump` in BadgerDB) to decode `wal.bin` and `value_log.bin` into a human-readable table:
+
+```bash
+tinystoredb-cli inspect --dir /tmp/tinystore-data
+```
+
+**Output:**
+```text
+====================================================================================================
+  🔍 TinyStoreDB Storage Engine Inspector (Directory: data)
+  WAL: wal.bin (180 B) | ValueLog: value_log.bin (240 B)
+====================================================================================================
+  #  WAL-OFFSET  DATA-OFFSET  KEY     VALUE         TIMESTAMP            TTL   STATUS
+  -  ----------  -----------  ---     -----         ---------            ---   ------
+  1  0x000000    0x000000     user:1  Alice         2026-10-21 18:00:01  -     ♻️  SUPERSEDED
+  2  0x00002A    0x000028     user:2  Bob           2026-10-21 18:00:05  300s  ♻️  SUPERSEDED
+  3  0x000054    0x000050     user:1  Alice Cooper  2026-10-21 18:01:10  -     ✅ ACTIVE
+  4  0x00007E    -            user:2  <tombstone>   2026-10-21 18:02:00  -     💀 TOMBSTONE
+----------------------------------------------------------------------------------------------------
+  Summary: 4 total records | 1 active (live) | 2 superseded | 1 tombstones | 0 expired
+  ⚡ Compaction: 3 dead/stale records can be reclaimed via 'tinystoredb-cli compact'
+====================================================================================================
+```
+
+#### Diagnostic Flags:
+* **`--watch` / `-w`**: Live interactive mode. Continuously tails storage files and prints writes and tombstones in real-time as they arrive.
+* **`--tombstones`**: Filter to show only deleted records.
+* **`--active-only`**: Show only current live records.
+* **`--key <name>` / `-k`**: Trace revision history and overwrites for a specific key.
+* **`--json`**: Output structured JSON for automation or test assertions.
 
 ---
 
@@ -133,6 +170,7 @@ func main() {
 - ✅ In-memory index for fast lookups
 - ✅ Tombstone support for deletes
 - ✅ Compaction to reclaim disk space
+- ✅ On-disk storage inspector (`tinystoredb-cli inspect`) with live watch & tombstone tracking
 - ✅ Concurrency-safe operations (read/write)
 - ✅ Interactive CLI shell (`tinystoredb-cli`) like `redis-cli`
 - ✅ Basic observability with Prometheus metrics
