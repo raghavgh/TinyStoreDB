@@ -1,13 +1,18 @@
 FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
+
+# Cache dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
 COPY . .
 
-# Build server and CLI binaries
-RUN go build -o tinystoredb-server main.go
-RUN go build -o tinystoredb-cli ./cmd/tinystoredb-cli/main.go
+# Build statically-linked, stripped production binaries
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o tinystoredb-server main.go
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o tinystoredb-cli ./cmd/tinystoredb-cli/main.go
 
-FROM alpine:3.18
+FROM alpine:3.24
 
 WORKDIR /app
 COPY --from=builder /app/tinystoredb-server /usr/local/bin/tinystoredb-server
