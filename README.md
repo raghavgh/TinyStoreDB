@@ -4,13 +4,71 @@
 🚧 **Note:** This project is under active development and approaching an MVP-ready state.
 
 
-## 🐳 Docker Usage
+## 🐳 Docker Usage (Server)
 
-You can run the database with:
+Run the database server with Docker:
 
 ```bash
-  docker run -p 7389:7389 -e TINYSTOREDB_PORT=7389 -e TINYSTOREDB_DATA_DIR=/data raghavgh/tinystoredb:latest
+docker run -d -p 7389:7389 --name tinystore -e TINYSTOREDB_PORT=7389 -e TINYSTOREDB_DATA_DIR=/data raghavgh/tinystoredb:latest
 ```
+
+---
+
+## 💻 Terminal CLI Usage (`tinystoredb-cli`)
+
+TinyStoreDB includes an official terminal client (`tinystoredb-cli`) with an interactive shell (REPL) and one-shot commands, similar to `redis-cli`.
+
+### 1. Install the CLI
+
+Install with the 1-line installer (Mac & Linux):
+```bash
+curl -fsSL https://raw.githubusercontent.com/raghavgh/TinyStoreDB/master/install.sh | sh
+```
+
+Or install with Go:
+```bash
+go install github.com/raghavgh/TinyStoreDB/cmd/tinystoredb-cli@latest
+```
+
+### 2. Connect to the Database
+
+In a separate terminal, simply run:
+```bash
+tinystoredb-cli
+```
+
+You are immediately dropped into the interactive shell:
+```text
+Connected to TinyStoreDB at localhost:7389
+Type 'help' for commands, 'exit' or 'quit' to quit.
+localhost:7389> SET user:1 Alice
+OK
+localhost:7389> GET user:1
+"Alice"
+localhost:7389> EXIST user:1
+(integer) 1
+localhost:7389> DEL user:1
+OK
+localhost:7389> COMPACT
+OK (compaction complete)
+localhost:7389> quit
+Bye!
+```
+
+Or execute one-shot commands directly from your terminal:
+```bash
+tinystoredb-cli set key1 value1
+tinystoredb-cli get key1
+tinystoredb-cli delete key1
+tinystoredb-cli compact
+```
+
+Connect to a remote or custom host:
+```bash
+tinystoredb-cli --host 192.168.1.50 --port 7389 get key1
+```
+
+---
 
 ## 📦 Go Client SDK Usage
 
@@ -37,7 +95,7 @@ import (
 func main() {
 	// Create a new client instance, unsecured for simplicity
 	// if you want secure communication,
-        // use cli, err := client.New("localhost:7389", <token>)
+	// use cli, err := client.New("localhost:7389", <token>)
 	cli, err := client.New("localhost:7389", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -76,6 +134,7 @@ func main() {
 - ✅ Tombstone support for deletes
 - ✅ Compaction to reclaim disk space
 - ✅ Concurrency-safe operations (read/write)
+- ✅ Interactive CLI shell (`tinystoredb-cli`) like `redis-cli`
 - ✅ Basic observability with Prometheus metrics
 - ✅ Configurable port and data directory via environment variables
 - ✅ Dockerized setup for easy deployment
@@ -105,4 +164,4 @@ For any queries or feedback, feel free to reach out via:
 - **👤 Linkedin:** *https://www.linkedin.com/in/raghavpaliwal/*
 - **🐙 GitHub Issues:** *[Github Issues page](https://github.com/raghavgh/TinyStoreDB/issues)*
 
----</file>
+---

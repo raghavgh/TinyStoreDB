@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/spf13/cobra"
 )
@@ -18,8 +19,7 @@ type Config struct {
 func getConfigPath() string {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		fmt.Println("Failed to get config directory:", err)
-		os.Exit(1)
+		return ""
 	}
 	configPath := filepath.Join(configDir, "tinystoredb")
 	_ = os.MkdirAll(configPath, 0o755)
@@ -27,22 +27,41 @@ func getConfigPath() string {
 }
 
 func saveConfig(cfg Config) error {
-	configFile := getConfigPath()
+	path := getConfigPath()
+	if path == "" {
+		return fmt.Errorf("unable to determine user config directory")
+	}
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(configFile, data, 0o644)
+	return os.WriteFile(path, data, 0o644)
 }
 
 func loadConfig() (Config, error) {
-	var cfg Config
-	data, err := os.ReadFile(getConfigPath())
-	if err != nil {
-		return cfg, err
+	cfg := Config{
+		Host: "localhost",
+		Port: 7389,
 	}
-	err = json.Unmarshal(data, &cfg)
-	return cfg, err
+	if h := os.Getenv("TINYSTOREDB_HOST"); h != "" {
+		cfg.Host = h
+	}
+	if p := os.Getenv("TINYSTOREDB_PORT"); p != "" {
+		if val, err := strconv.Atoi(p); err == nil {
+			cfg.Port = val
+		}
+	}
+	if s := os.Getenv("TINYSTOREDB_SECRET"); s != "" {
+		cfg.Secret = s
+	}
+
+	path := getConfigPath()
+	if path != "" {
+		if data, err := os.ReadFile(path); err == nil {
+			_ = json.Unmarshal(data, &cfg)
+		}
+	}
+	return cfg, nil
 }
 
 var (
@@ -60,10 +79,15 @@ var configSetCmd = &cobra.Command{
 	Use:   "set",
 	Short: "Set config values",
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg := Config{
-			Host:   hostFlag,
-			Port:   portFlag,
-			Secret: secretFlag,
+		cfg, _ := loadConfig()
+		if hostFlag != "" {
+			cfg.Host = hostFlag
+		}
+		if portFlag != 0 {
+			cfg.Port = portFlag
+		}
+		if secretFlag != "" {
+			cfg.Secret = secretFlag
 		}
 		if err := saveConfig(cfg); err != nil {
 			fmt.Println("Failed to save config:", err)

@@ -9,8 +9,13 @@ import (
 
 func (s *KVStoreTestSuite) SetupTest() {
 	_test = true
-
-	s.store, _ = NewKVStore(config.Load())
+	s.dataDir = s.T().TempDir()
+	cfg := &config.Config{
+		DataDir: s.dataDir,
+	}
+	var err error
+	s.store, err = NewKVStore(cfg)
+	s.Require().NoError(err)
 }
 
 func (s *KVStoreTestSuite) TearDownTest() {
@@ -57,10 +62,15 @@ func (s *KVStoreTestSuite) TestReplay() {
 	_ = s.store.wal.Close(false)
 	_ = s.store.valueLog.Close(false)
 
-	s.store, _ = NewKVStore(config.Load())
+	cfg := &config.Config{
+		DataDir: s.dataDir,
+	}
+	var err error
+	s.store, err = NewKVStore(cfg)
+	s.Require().NoError(err)
 
 	// Replay the values
-	err := s.store.Replay()
+	err = s.store.Replay()
 	s.NoError(err)
 
 	// Check if the values are still there
@@ -83,5 +93,6 @@ func TestKVStoreSuite(t *testing.T) {
 
 type KVStoreTestSuite struct {
 	suite.Suite
-	store *KVStore
+	store   *KVStore
+	dataDir string
 }
