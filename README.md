@@ -6,10 +6,10 @@
 
 ## 🐳 Docker Usage (Server)
 
-Run the database server with Docker:
+Run the database server with Docker (mounting a local `./data` directory ensures your data persists on your host):
 
 ```bash
-docker run -d -p 7389:7389 --name tinystore -e TINYSTOREDB_PORT=7389 -e TINYSTOREDB_DATA_DIR=/data raghavgh/tinystoredb:latest
+docker run -d -p 7389:7389 -v $(pwd)/data:/data --name tinystore -e TINYSTOREDB_PORT=7389 -e TINYSTOREDB_DATA_DIR=/data raghavgh/tinystoredb:latest
 ```
 
 ---
@@ -77,28 +77,37 @@ tinystoredb-cli --host 192.168.1.50 --port 7389 get key1
 Debugging raw binary `.bin` files directly can be challenging. TinyStoreDB provides a built-in diagnostic inspector (similar to `sst_dump` in RocksDB or `badger dump` in BadgerDB) to decode `wal.bin` and `value_log.bin` into a human-readable table:
 
 ```bash
-tinystoredb-cli inspect --dir /tmp/tinystore-data
+tinystoredb-cli inspect --dir ./data
 ```
 
-**Output:**
+**Human-Readable Output:**
 ```text
 ====================================================================================================
-  🔍 TinyStoreDB Storage Engine Inspector (Directory: data)
+  🔍 TinyStoreDB Storage Engine Inspector (Directory: ./data)
   WAL: wal.bin (180 B) | ValueLog: value_log.bin (240 B)
-====================================================================================================
-  #  WAL-OFFSET  DATA-OFFSET  KEY     VALUE         TIMESTAMP            TTL   STATUS
-  -  ----------  -----------  ---     -----         ---------            ---   ------
-  1  0x000000    0x000000     user:1  Alice         2026-10-21 18:00:01  -     ♻️  SUPERSEDED
-  2  0x00002A    0x000028     user:2  Bob           2026-10-21 18:00:05  300s  ♻️  SUPERSEDED
-  3  0x000054    0x000050     user:1  Alice Cooper  2026-10-21 18:01:10  -     ✅ ACTIVE
-  4  0x00007E    -            user:2  <tombstone>   2026-10-21 18:02:00  -     💀 TOMBSTONE
 ----------------------------------------------------------------------------------------------------
-  Summary: 4 total records | 1 active (live) | 2 superseded | 1 tombstones | 0 expired
-  ⚡ Compaction: 3 dead/stale records can be reclaimed via 'tinystoredb-cli compact'
+  📖 Storage Layout:
+  • WAL Position:   Byte location in wal.bin (+record length)
+  • Value Position: Byte location in value_log.bin (+payload length)
+  • Record Type:    PUT (written record) or TOMBSTONE (soft-deleted entry)
+  • Liveness:       live (current active value), stale (overwritten), or expired (TTL)
+====================================================================================================
+  #  WAL POSITION    VALUE POSITION  KEY     VALUE         TIMESTAMP            TTL   RECORD TYPE   LIVENESS
+  -  ------------    --------------  ---     -----         ---------            ---   -----------   --------
+  1  byte 0 (13 B)   byte 0 (15 B)   user:1  Alice         2026-10-21 18:00:01  -     ✍️  PUT        ♻️  stale
+  2  byte 13 (16 B)  byte 15 (17 B)  user:2  Bob           2026-10-21 18:00:05  300s  ✍️  PUT        ♻️  stale
+  3  byte 29 (18 B)  byte 32 (22 B)  user:1  Alice Cooper  2026-10-21 18:01:10  -     ✍️  PUT        ✅ live
+  4  byte 47 (16 B)  - (no payload)  user:2  <tombstone>   2026-10-21 18:02:00  -     💀 TOMBSTONE  -
+----------------------------------------------------------------------------------------------------
+  Summary: 4 records (3 PUTs, 1 TOMBSTONEs) | 1 live | 2 stale | 0 expired
+  ⚡ Compaction: 3 stale/dead records can be reclaimed via 'tinystoredb-cli compact'
 ====================================================================================================
 ```
 
-#### Diagnostic Flags:
+#### Diagnostic & Optimization Flags:
+* **`--limit <N>` / `-n`**: Limit output to the most recent N records (default: 50). Keeps terminal fast on multi-gigabyte databases.
+* **`--all`**: Display all records without pagination.
+* **`--hex`**: Switch from decimal byte layout to raw hexadecimal offsets (e.g. `0x00002A`).
 * **`--watch` / `-w`**: Live interactive mode. Continuously tails storage files and prints writes and tombstones in real-time as they arrive.
 * **`--tombstones`**: Filter to show only deleted records.
 * **`--active-only`**: Show only current live records.

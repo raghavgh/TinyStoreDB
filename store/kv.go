@@ -55,6 +55,7 @@ func (kv *KVStore) Compact() error {
 	}
 
 	seenMap := go_map.New[string, struct{}]()
+	nowUnix := uint64(time.Now().Unix())
 
 	for _, record := range snapShotWalRecords {
 		walRecord := record.(*walpb.WALRecord)
@@ -88,6 +89,20 @@ func (kv *KVStore) Compact() error {
 			continue
 		}
 
+		// Determine true TTL from latest payload or WAL record
+		var recTTL *uint64
+		if value.Ttl != nil && *value.Ttl > 0 {
+			recTTL = value.Ttl
+		} else if walRecord.Ttl != nil && *walRecord.Ttl > 0 {
+			recTTL = walRecord.Ttl
+		}
+
+		// Check if record has expired: if so, purge it during compaction!
+		if recTTL != nil && *recTTL > 0 && *recTTL < nowUnix {
+			seenMap.Put(walRecord.Key, struct{}{})
+			continue
+		}
+
 		newOffset, appendErr := newValueLog.Append(value)
 		if appendErr != nil {
 			_ = newWal.Close(true)
@@ -99,6 +114,7 @@ func (kv *KVStore) Compact() error {
 			Key:       walRecord.Key,
 			Offset:    newOffset,
 			Timestamp: walRecord.Timestamp,
+			Ttl:       recTTL,
 		})
 		if appendErr != nil {
 			_ = newWal.Close(true)
