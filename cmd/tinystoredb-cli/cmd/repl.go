@@ -153,7 +153,12 @@ func runREPL() {
 			if err != nil {
 				fmt.Printf("(error) failed to inspect %q: %v\n", targetDir, err)
 			} else {
-				PrintInspectTable(os.Stdout, targetDir, walPath, valPath, records, summary)
+				displayed := records
+				if len(displayed) > 50 {
+					displayed = displayed[len(displayed)-50:]
+				}
+				loadValues(valPath, displayed)
+				PrintInspectTable(os.Stdout, targetDir, walPath, valPath, displayed, summary, len(records), false)
 			}
 
 		default:

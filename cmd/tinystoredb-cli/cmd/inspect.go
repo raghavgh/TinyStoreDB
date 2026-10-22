@@ -27,30 +27,38 @@ var (
 	inspectActiveOnlyFlag bool
 	inspectJsonFlag       bool
 	inspectWatchFlag      bool
+	inspectLimitFlag      int
+	inspectAllFlag        bool
+	inspectHexFlag        bool
 )
 
 // InspectedRecord captures the on-disk state of a single WAL entry and its corresponding ValueLog payload.
 type InspectedRecord struct {
 	Index      int       `json:"index"`
 	WalOffset  uint64    `json:"wal_offset"`
+	WalLength  uint32    `json:"wal_length"`
 	DataOffset uint64    `json:"data_offset"`
+	DataLength uint32    `json:"data_length"`
 	Key        string    `json:"key"`
 	Value      string    `json:"value"`
 	Deleted    bool      `json:"deleted"`
+	RecordType string    `json:"record_type"` // PUT, TOMBSTONE (on-disk reality)
+	Liveness   string    `json:"liveness"`    // live, stale, expired, - (derived lineage)
 	Timestamp  time.Time `json:"timestamp"`
 	HasExpiry  bool      `json:"has_expiry"`
 	ExpiresAt  time.Time `json:"expires_at,omitempty"`
 	TTLSeconds int64     `json:"ttl_seconds,omitempty"`
-	Status     string    `json:"status"` // ACTIVE, TOMBSTONE, SUPERSEDED, EXPIRED
+	Status     string    `json:"status"` // legacy alias for liveness/record type
 }
 
 // InspectSummary aggregates metrics for disk analysis.
 type InspectSummary struct {
 	TotalRecords    int `json:"total_records"`
-	ActiveRecords   int `json:"active_records"`
+	Puts            int `json:"puts"`
 	Tombstones      int `json:"tombstones"`
-	Superseded      int `json:"superseded"`
-	Expired         int `json:"expired"`
+	LiveRecords     int `json:"live_records"`
+	StaleRecords    int `json:"stale_records"`
+	ExpiredRecords  int `json:"expired_records"`
 	CompactionWaste int `json:"compaction_waste"`
 }
 
@@ -59,12 +67,22 @@ var inspectCmd = &cobra.Command{
 	Short: "🔍 Inspect raw on-disk data files (WAL, ValueLog, Tombstones, Revisions)",
 	Long: `Inspect provides offline and live interactive diagnostic views of TinyStoreDB's on-disk storage engine.
 
-It walks through wal.bin and value_log.bin sequentially, decoding every entry, tracking key revision
-history, identifying tombstones (deletions), superseded entries, active values, and TTL expirations.
+It scans wal.bin and value_log.bin, decoding entry metadata, tracking key revision history,
+identifying tombstones (deletions), stale overwritten entries, live values, and TTL expirations.
+
+Terminology maps directly to physical storage:
+- RECORD TYPE: What is physically on disk: PUT (write) or TOMBSTONE (delete).
+- LIVENESS: Current status in the database index: live, stale (overwritten), or expired.
+
+Optimized for bulk storage: Performs a fast sequential metadata scan and lazily loads
+heavy value payloads only for displayed records.
 
 Examples:
   tinystoredb-cli inspect
   tinystoredb-cli inspect --dir /data
+  tinystoredb-cli inspect --limit 100
+  tinystoredb-cli inspect --all
+  tinystoredb-cli inspect --hex
   tinystoredb-cli inspect --key user:100
   tinystoredb-cli inspect --tombstones
   tinystoredb-cli inspect --watch
@@ -84,6 +102,16 @@ Examples:
 
 		// Apply filters
 		filtered := filterRecords(records, inspectKeyFlag, inspectTombstonesFlag, inspectActiveOnlyFlag)
+		totalFiltered := len(filtered)
+
+		// Apply limit (default 50 recent writes unless --all is passed)
+		displayed := filtered
+		if !inspectAllFlag && inspectLimitFlag > 0 && len(displayed) > inspectLimitFlag {
+			displayed = displayed[len(displayed)-inspectLimitFlag:]
+		}
+
+		// Lazy load value payloads only for the records being displayed
+		loadValues(valPath, displayed)
 
 		if inspectJsonFlag {
 			output := struct {
@@ -91,20 +119,24 @@ Examples:
 				WalFile string            `json:"wal_file"`
 				ValFile string            `json:"value_log_file"`
 				Summary InspectSummary    `json:"summary"`
+				Showing int               `json:"showing"`
+				Total   int               `json:"total_filtered"`
 				Records []InspectedRecord `json:"records"`
 			}{
 				DataDir: dir,
 				WalFile: walPath,
 				ValFile: valPath,
 				Summary: summary,
-				Records: filtered,
+				Showing: len(displayed),
+				Total:   totalFiltered,
+				Records: displayed,
 			}
 			data, _ := json.MarshalIndent(output, "", "  ")
 			fmt.Println(string(data))
 			return
 		}
 
-		PrintInspectTable(os.Stdout, dir, walPath, valPath, filtered, summary)
+		PrintInspectTable(os.Stdout, dir, walPath, valPath, displayed, summary, totalFiltered, inspectHexFlag)
 	},
 }
 
@@ -113,6 +145,9 @@ func init() {
 	inspectCmd.Flags().StringVarP(&inspectKeyFlag, "key", "k", "", "Filter records by key")
 	inspectCmd.Flags().BoolVar(&inspectTombstonesFlag, "tombstones", false, "Display only tombstone (deleted) records")
 	inspectCmd.Flags().BoolVar(&inspectActiveOnlyFlag, "active-only", false, "Display only currently active live records")
+	inspectCmd.Flags().IntVarP(&inspectLimitFlag, "limit", "n", 50, "Limit number of displayed records to most recent N (default: 50)")
+	inspectCmd.Flags().BoolVar(&inspectAllFlag, "all", false, "Display all records without limit")
+	inspectCmd.Flags().BoolVar(&inspectHexFlag, "hex", false, "Display offsets in raw hexadecimal format (e.g. 0x00002A)")
 	inspectCmd.Flags().BoolVar(&inspectJsonFlag, "json", false, "Output results in JSON format")
 	inspectCmd.Flags().BoolVarP(&inspectWatchFlag, "watch", "w", false, "Live watch mode: tail storage files and display writes/tombstones in real-time")
 
@@ -135,7 +170,6 @@ func locateFiles(dir string) (string, string, error) {
 	valPath := filepath.Join(dir, "value_log.bin")
 
 	if _, err := os.Stat(walPath); err != nil {
-		// Check test files if regular not present
 		altWal := filepath.Join(dir, "wal_test.bin")
 		altVal := filepath.Join(dir, "value_log_test.bin")
 		if _, errAlt := os.Stat(altWal); errAlt == nil {
@@ -147,7 +181,7 @@ func locateFiles(dir string) (string, string, error) {
 	return walPath, valPath, nil
 }
 
-// ReadDiskRecords parses the WAL and ValueLog files to reconstruct the disk state.
+// ReadDiskRecords performs a fast sequential scan of wal.bin to reconstruct full database state without reading value payloads.
 func ReadDiskRecords(dir string) ([]InspectedRecord, InspectSummary, string, string, error) {
 	walPath, valPath, err := locateFiles(dir)
 	if err != nil {
@@ -159,11 +193,6 @@ func ReadDiskRecords(dir string) ([]InspectedRecord, InspectSummary, string, str
 		return nil, InspectSummary{}, walPath, valPath, fmt.Errorf("open WAL: %w", err)
 	}
 	defer walFile.Close()
-
-	valFile, _ := os.Open(valPath)
-	if valFile != nil {
-		defer valFile.Close()
-	}
 
 	var records []InspectedRecord
 	var currentWalOffset uint64 = 0
@@ -184,15 +213,18 @@ func ReadDiskRecords(dir string) ([]InspectedRecord, InspectSummary, string, str
 			break
 		}
 
+		entryTotalLen := 4 + lengthPrefix
+
 		var walRecord walpb.WALRecord
 		if err := proto.Unmarshal(data, &walRecord); err != nil {
-			currentWalOffset += uint64(4 + lengthPrefix)
+			currentWalOffset += uint64(entryTotalLen)
 			continue
 		}
 
 		record := InspectedRecord{
 			Index:      len(records) + 1,
 			WalOffset:  currentWalOffset,
+			WalLength:  entryTotalLen,
 			DataOffset: walRecord.Offset,
 			Key:        walRecord.Key,
 			Deleted:    walRecord.Deleted,
@@ -210,32 +242,49 @@ func ReadDiskRecords(dir string) ([]InspectedRecord, InspectSummary, string, str
 
 		if walRecord.Deleted {
 			record.Value = "<tombstone>"
-		} else if valFile != nil {
-			// Read payload from ValueLog
-			valLenBuf := make([]byte, 4)
-			if _, err := valFile.ReadAt(valLenBuf, int64(walRecord.Offset)); err == nil {
-				valLen := binary.BigEndian.Uint32(valLenBuf)
-				valBuf := make([]byte, valLen)
-				if _, err := valFile.ReadAt(valBuf, int64(walRecord.Offset+4)); err == nil {
-					var vRec value_log_pb.ValueLogRecord
-					if proto.Unmarshal(valBuf, &vRec) == nil {
-						record.Value = string(vRec.Value)
-					}
-				}
-			}
-			if record.Value == "" {
-				record.Value = "<pending/empty>"
-			}
 		}
 
 		records = append(records, record)
-		currentWalOffset += uint64(4 + lengthPrefix)
+		currentWalOffset += uint64(entryTotalLen)
 	}
 
-	// Compute status and summary
+	// Compute lifecycle status across all records
 	summary := computeLifecycleStatuses(records)
 
 	return records, summary, walPath, valPath, nil
+}
+
+// loadValues lazily fetches the actual value bytes from value_log.bin only for the records being rendered.
+func loadValues(valPath string, records []InspectedRecord) {
+	valFile, err := os.Open(valPath)
+	if err != nil {
+		return
+	}
+	defer valFile.Close()
+
+	for i := range records {
+		r := &records[i]
+		if r.Deleted {
+			r.Value = "<tombstone>"
+			continue
+		}
+
+		valLenBuf := make([]byte, 4)
+		if _, err := valFile.ReadAt(valLenBuf, int64(r.DataOffset)); err == nil {
+			valLen := binary.BigEndian.Uint32(valLenBuf)
+			r.DataLength = 4 + valLen
+			valBuf := make([]byte, valLen)
+			if _, err := valFile.ReadAt(valBuf, int64(r.DataOffset+4)); err == nil {
+				var vRec value_log_pb.ValueLogRecord
+				if proto.Unmarshal(valBuf, &vRec) == nil {
+					r.Value = string(vRec.Value)
+				}
+			}
+		}
+		if r.Value == "" {
+			r.Value = "<pending/empty>"
+		}
+	}
 }
 
 func computeLifecycleStatuses(records []InspectedRecord) InspectSummary {
@@ -252,28 +301,36 @@ func computeLifecycleStatuses(records []InspectedRecord) InspectSummary {
 	for i := range records {
 		r := &records[i]
 		if r.Deleted {
+			r.RecordType = "TOMBSTONE"
+			r.Liveness = "-"
 			r.Status = "TOMBSTONE"
 			summary.Tombstones++
 			summary.CompactionWaste++
 			continue
 		}
 
+		r.RecordType = "PUT"
+		summary.Puts++
+
 		if lastSeenIndex[r.Key] != i {
+			r.Liveness = "stale"
 			r.Status = "SUPERSEDED"
-			summary.Superseded++
+			summary.StaleRecords++
 			summary.CompactionWaste++
 			continue
 		}
 
 		if r.HasExpiry && r.ExpiresAt.Before(now) {
+			r.Liveness = "expired"
 			r.Status = "EXPIRED"
-			summary.Expired++
+			summary.ExpiredRecords++
 			summary.CompactionWaste++
 			continue
 		}
 
+		r.Liveness = "live"
 		r.Status = "ACTIVE"
-		summary.ActiveRecords++
+		summary.LiveRecords++
 	}
 
 	return summary
@@ -288,7 +345,7 @@ func filterRecords(records []InspectedRecord, keyFilter string, tombstonesOnly b
 		if tombstonesOnly && !r.Deleted {
 			continue
 		}
-		if activeOnly && r.Status != "ACTIVE" {
+		if activeOnly && r.Liveness != "live" {
 			continue
 		}
 		filtered = append(filtered, r)
@@ -297,7 +354,7 @@ func filterRecords(records []InspectedRecord, keyFilter string, tombstonesOnly b
 }
 
 // PrintInspectTable renders a formatted table showing disk records and summary statistics.
-func PrintInspectTable(w io.Writer, dir, walPath, valPath string, records []InspectedRecord, summary InspectSummary) {
+func PrintInspectTable(w io.Writer, dir, walPath, valPath string, records []InspectedRecord, summary InspectSummary, totalFiltered int, useHex bool) {
 	walFi, _ := os.Stat(walPath)
 	valFi, _ := os.Stat(valPath)
 	var walSize, valSize int64
@@ -313,21 +370,50 @@ func PrintInspectTable(w io.Writer, dir, walPath, valPath string, records []Insp
 	fmt.Fprintf(w, "  WAL: %s (%s) | ValueLog: %s (%s)\n",
 		filepath.Base(walPath), formatBytes(walSize),
 		filepath.Base(valPath), formatBytes(valSize))
+	fmt.Fprintf(w, "----------------------------------------------------------------------------------------------------\n")
+	if useHex {
+		fmt.Fprintf(w, "  📖 Format: Hexadecimal Offsets (0x...)\n")
+	} else {
+		fmt.Fprintf(w, "  📖 Storage Layout:\n")
+		fmt.Fprintf(w, "  • WAL Position:   Byte location in wal.bin (+record length)\n")
+		fmt.Fprintf(w, "  • Value Position: Byte location in value_log.bin (+payload length)\n")
+		fmt.Fprintf(w, "  • Record Type:    PUT (written record) or TOMBSTONE (soft-deleted entry)\n")
+		fmt.Fprintf(w, "  • Liveness:       live (current active value), stale (overwritten), or expired (TTL)\n")
+	}
 	fmt.Fprintf(w, "====================================================================================================\n")
 
 	if len(records) == 0 {
-		fmt.Fprintf(w, "  (No records found in storage files)\n\n")
+		fmt.Fprintf(w, "  (No matching records found in storage files)\n\n")
 		return
 	}
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(tw, "  #\tWAL-OFFSET\tDATA-OFFSET\tKEY\tVALUE\tTIMESTAMP\tTTL\tSTATUS\n")
-	fmt.Fprintf(tw, "  -\t----------\t-----------\t---\t-----\t---------\t---\t------\n")
+	if useHex {
+		fmt.Fprintf(tw, "  #\tWAL-OFFSET\tDATA-OFFSET\tKEY\tVALUE\tTIMESTAMP\tTTL\tRECORD TYPE\tLIVENESS\n")
+		fmt.Fprintf(tw, "  -\t----------\t-----------\t---\t-----\t---------\t---\t-----------\t--------\n")
+	} else {
+		fmt.Fprintf(tw, "  #\tWAL POSITION\tVALUE POSITION\tKEY\tVALUE\tTIMESTAMP\tTTL\tRECORD TYPE\tLIVENESS\n")
+		fmt.Fprintf(tw, "  -\t------------\t--------------\t---\t-----\t---------\t---\t-----------\t--------\n")
+	}
 
 	for _, r := range records {
-		dataOffsetStr := fmt.Sprintf("0x%06X", r.DataOffset)
-		if r.Deleted {
-			dataOffsetStr = "-"
+		var walPosStr, valPosStr string
+		if useHex {
+			walPosStr = fmt.Sprintf("0x%06X", r.WalOffset)
+			if r.Deleted {
+				valPosStr = "-"
+			} else {
+				valPosStr = fmt.Sprintf("0x%06X", r.DataOffset)
+			}
+		} else {
+			walPosStr = fmt.Sprintf("byte %d (%d B)", r.WalOffset, r.WalLength)
+			if r.Deleted {
+				valPosStr = "- (no payload)"
+			} else if r.DataLength > 0 {
+				valPosStr = fmt.Sprintf("byte %d (%d B)", r.DataOffset, r.DataLength)
+			} else {
+				valPosStr = fmt.Sprintf("byte %d", r.DataOffset)
+			}
 		}
 
 		valStr := r.Value
@@ -350,28 +436,38 @@ func PrintInspectTable(w io.Writer, dir, walPath, valPath string, records []Insp
 			}
 		}
 
-		statusStr := r.Status
-		switch r.Status {
-		case "ACTIVE":
-			statusStr = "✅ ACTIVE"
-		case "TOMBSTONE":
-			statusStr = "💀 TOMBSTONE"
-		case "SUPERSEDED":
-			statusStr = "♻️  SUPERSEDED"
-		case "EXPIRED":
-			statusStr = "⏰ EXPIRED"
+		typeStr := r.RecordType
+		if r.RecordType == "TOMBSTONE" {
+			typeStr = "💀 TOMBSTONE"
+		} else {
+			typeStr = "✍️  PUT"
 		}
 
-		fmt.Fprintf(tw, "  %d\t0x%06X\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			r.Index, r.WalOffset, dataOffsetStr, r.Key, valStr, timeStr, ttlStr, statusStr)
+		livenessStr := r.Liveness
+		switch r.Liveness {
+		case "live":
+			livenessStr = "✅ live"
+		case "stale":
+			livenessStr = "♻️  stale"
+		case "expired":
+			livenessStr = "⏰ expired"
+		case "-":
+			livenessStr = "-"
+		}
+
+		fmt.Fprintf(tw, "  %d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			r.Index, walPosStr, valPosStr, r.Key, valStr, timeStr, ttlStr, typeStr, livenessStr)
 	}
 	tw.Flush()
 
 	fmt.Fprintf(w, "----------------------------------------------------------------------------------------------------\n")
-	fmt.Fprintf(w, "  Summary: %d total records | %d active (live) | %d superseded | %d tombstones | %d expired\n",
-		summary.TotalRecords, summary.ActiveRecords, summary.Superseded, summary.Tombstones, summary.Expired)
+	if len(records) < totalFiltered {
+		fmt.Fprintf(w, "  ℹ️  Showing most recent %d of %d matching records. (Use --all to display all)\n", len(records), totalFiltered)
+	}
+	fmt.Fprintf(w, "  Summary: %d records (%d PUTs, %d TOMBSTONEs) | %d live | %d stale | %d expired\n",
+		summary.TotalRecords, summary.Puts, summary.Tombstones, summary.LiveRecords, summary.StaleRecords, summary.ExpiredRecords)
 	if summary.CompactionWaste > 0 {
-		fmt.Fprintf(w, "  ⚡ Compaction: %d dead/stale records can be reclaimed via 'tinystoredb-cli compact'\n",
+		fmt.Fprintf(w, "  ⚡ Compaction: %d stale/dead records can be reclaimed via 'tinystoredb-cli compact'\n",
 			summary.CompactionWaste)
 	} else {
 		fmt.Fprintf(w, "  ✨ Compaction: Storage is fully clean and optimal (no stale records)\n")
@@ -382,10 +478,14 @@ func PrintInspectTable(w io.Writer, dir, walPath, valPath string, records []Insp
 func runWatchMode(ctx context.Context, dir string) {
 	fmt.Printf("👀 Watching TinyStoreDB storage in %q... (Press Ctrl+C to exit)\n", dir)
 
-	// First print snapshot
 	records, summary, walPath, valPath, err := ReadDiskRecords(dir)
 	if err == nil {
-		PrintInspectTable(os.Stdout, dir, walPath, valPath, records, summary)
+		displayed := records
+		if len(displayed) > 20 {
+			displayed = displayed[len(displayed)-20:]
+		}
+		loadValues(valPath, displayed)
+		PrintInspectTable(os.Stdout, dir, walPath, valPath, displayed, summary, len(records), false)
 	} else {
 		fmt.Printf("Waiting for data files to be created in %s...\n", dir)
 	}
@@ -406,21 +506,22 @@ func runWatchMode(ctx context.Context, dir string) {
 			fmt.Println("\nStopped watch mode.")
 			return
 		case <-ticker.C:
-			currentRecords, _, _, _, err := ReadDiskRecords(dir)
+			currentRecords, _, _, valPath, err := ReadDiskRecords(dir)
 			if err != nil {
 				continue
 			}
 
 			if len(currentRecords) > lastCount {
-				for i := lastCount; i < len(currentRecords); i++ {
-					r := currentRecords[i]
+				newBatch := currentRecords[lastCount:]
+				loadValues(valPath, newBatch)
+				for _, r := range newBatch {
 					timeStr := time.Now().Format("15:04:05")
 					if r.Deleted {
-						fmt.Printf("[%s] 💀 TOMBSTONE      | KEY: %-15s | WAL-OFFSET: 0x%06X\n",
-							timeStr, r.Key, r.WalOffset)
+						fmt.Printf("[%s] 💀 TOMBSTONE      | KEY: %-15s | WAL: byte %d (%d B)\n",
+							timeStr, r.Key, r.WalOffset, r.WalLength)
 					} else {
-						fmt.Printf("[%s] ✍️  WRITE          | KEY: %-15s | VALUE: %-15s | OFFSET: 0x%06X | STATUS: %s\n",
-							timeStr, r.Key, r.Value, r.DataOffset, r.Status)
+						fmt.Printf("[%s] ✍️  PUT            | KEY: %-15s | VALUE: %-15s | VALUE POS: byte %d (%d B) | LIVENESS: %s\n",
+							timeStr, r.Key, r.Value, r.DataOffset, r.DataLength, r.Liveness)
 					}
 				}
 				lastCount = len(currentRecords)

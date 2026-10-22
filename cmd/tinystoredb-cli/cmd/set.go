@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -19,7 +20,7 @@ var (
 
 // setCmd represents the set command
 var setCmd = &cobra.Command{
-	Use:   "set",
+	Use:   "set [key] [value] [ttl_seconds]",
 	Short: "📝 Set a key-value pair in TinyStoreDB",
 	Long: `📌 Set stores the specified key-value pair into TinyStoreDB.
 
@@ -27,15 +28,14 @@ You can pass the key and value directly as positional arguments or via flags.
 
 You can also optionally include a TTL (time-to-live) in seconds, after which the key will automatically expire.
 `,
-	Example: `
-  # Set a key and value using positional args
-  tinystoredb set myKey myValue
+	Example: `  # Set a key and value using positional args
+  tinystoredb-cli set myKey myValue
+
+  # Set with positional TTL (key expires in 5 seconds)
+  tinystoredb-cli set myKey myValue 5
 
   # Set using flags
-  tinystoredb set --key=myKey --value=myValue
-
-  # Set with TTL (key expires in 5 seconds)
-  tinystoredb set --key=myKey --value=myValue --ttl=5
+  tinystoredb-cli set --key=myKey --value=myValue --ttl=5
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		start := time.Now()
@@ -43,6 +43,11 @@ You can also optionally include a TTL (time-to-live) in seconds, after which the
 		if len(args) >= 2 {
 			key = args[0]
 			value = args[1]
+			if len(args) >= 3 && ttlSeconds == 0 {
+				if sec, err := strconv.ParseInt(args[2], 10, 64); err == nil {
+					ttlSeconds = sec
+				}
+			}
 		} else if key == "" || value == "" {
 			log.Fatal("❌ Either provide key and value as positional arguments or use --key and --value flags")
 		}
